@@ -77,8 +77,10 @@ export const postsAPI = {
   },
 
   // 获取用户动态
-  getUserPosts(userId) {
-    return api.get(`/posts/user/${userId}`)
+  getUserPosts(userId, page = 1, pageSize = 10, sort = 'latest') {
+    return api.get(`/posts/user/${userId}`, {
+      params: { page, pageSize, sort }
+    })
   },
 
   // 获取用户收藏的动态列表
