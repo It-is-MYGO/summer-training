@@ -156,21 +156,23 @@ async function fetchPosts() {
       sort: sortType.value
     }
     
-    console.log('请求参数:', params)
+    console.log('SquarePage 请求参数:', params)
     const response = await postsAPI.getPosts(params)
-    console.log('API响应:', response)
+    console.log('SquarePage API响应:', response)
     
     if (response.code === 0) {
       posts.value = response.data.list
       total.value = response.data.total
       
-      // 调试信息：检查每个动态的图片数据
+      // 调试信息：检查每个动态的点赞状态
       posts.value.forEach((post, index) => {
-        console.log(`动态 ${index + 1}:`, {
+        console.log(`SquarePage 动态 ${index + 1}:`, {
           id: post.id,
-          content: post.content,
-          images: post.images,
-          imagesLength: post.images ? post.images.length : 0
+          content: post.content?.substring(0, 20) + '...',
+          likes: post.likes,
+          isLiked: post.isLiked,
+          comments: post.comments,
+          isCollected: post.isCollected
         })
       })
     } else {
@@ -324,6 +326,14 @@ function nextPage() {
 
 // 打开详情
 async function openDetail(post) {
+  console.log('SquarePage 打开详情，动态信息:', {
+    id: post.id,
+    content: post.content?.substring(0, 20) + '...',
+    comments: post.comments,
+    likes: post.likes,
+    isLiked: post.isLiked
+  })
+  
   selectedPost.value = post
   showDetail.value = true
   detailComments.value = []
@@ -382,29 +392,79 @@ function closeDetail() {
 async function onSubmitComment(comment) {
   commentSubmitting.value = true
   try {
+    console.log('SquarePage 提交评论，postId:', selectedPost.value.id, 'comment:', comment)
     const response = await postsAPI.addComment(selectedPost.value.id, { content: comment })
+    console.log('SquarePage 评论提交响应:', response)
+    
     if (response.code === 0) {
       // 重新加载评论第一页
       commentPage.value = 1
       await fetchComments(selectedPost.value.id)
-      // 更新主列表评论数
-      const post = posts.value.find(p => p.id === selectedPost.value.id)
-      if (post) {
-        post.comments = (post.comments || 0) + 1
-      }
-      // 更新详情页评论数
-      if (selectedPost.value) {
-        selectedPost.value.comments = (selectedPost.value.comments || 0) + 1
-        if (selectedPost.value !== post) {
-          selectedPost.value = { ...selectedPost.value }
+      
+      // 重新获取动态的最新数据，确保评论数正确
+      try {
+        const postResponse = await postsAPI.getPostById(selectedPost.value.id)
+        console.log('SquarePage 重新获取动态数据:', postResponse)
+        
+        if (postResponse.code === 0 && postResponse.data) {
+          const updatedPost = postResponse.data
+          
+          // 更新主列表评论数
+          const post = posts.value.find(p => p.id === selectedPost.value.id)
+          console.log('SquarePage 找到要更新的动态:', post)
+          if (post) {
+            const oldComments = post.comments || 0
+            post.comments = updatedPost.comments || 0
+            post.likes = updatedPost.likes || 0
+            post.isLiked = updatedPost.isLiked || false
+            post.isCollected = updatedPost.isCollected || false
+            console.log('SquarePage 主列表更新:', { 
+              comments: oldComments + '->' + post.comments,
+              likes: post.likes,
+              isLiked: post.isLiked
+            })
+          }
+          
+          // 更新详情页数据
+          if (selectedPost.value) {
+            const oldDetailComments = selectedPost.value.comments || 0
+            selectedPost.value.comments = updatedPost.comments || 0
+            selectedPost.value.likes = updatedPost.likes || 0
+            selectedPost.value.isLiked = updatedPost.isLiked || false
+            selectedPost.value.isCollected = updatedPost.isCollected || false
+            console.log('SquarePage 详情页更新:', { 
+              comments: oldDetailComments + '->' + selectedPost.value.comments,
+              likes: selectedPost.value.likes,
+              isLiked: selectedPost.value.isLiked
+            })
+            
+            if (selectedPost.value !== post) {
+              selectedPost.value = { ...selectedPost.value }
+            }
+          }
+        }
+      } catch (error) {
+        console.error('SquarePage 重新获取动态数据失败:', error)
+        // 如果重新获取失败，使用手动+1作为备选方案
+        const post = posts.value.find(p => p.id === selectedPost.value.id)
+        if (post) {
+          post.comments = (post.comments || 0) + 1
+        }
+        if (selectedPost.value) {
+          selectedPost.value.comments = (selectedPost.value.comments || 0) + 1
+          if (selectedPost.value !== post) {
+            selectedPost.value = { ...selectedPost.value }
+          }
         }
       }
+      
       if (store) store.showNotification('评论成功', 'success')
     } else {
+      console.error('SquarePage 评论提交失败:', response)
       if (store) store.showNotification('评论失败', 'error')
     }
   } catch (error) {
-    console.error('评论操作失败:', error)
+    console.error('SquarePage 评论操作失败:', error)
     if (store) store.showNotification('评论失败', 'error')
   } finally {
     commentSubmitting.value = false
