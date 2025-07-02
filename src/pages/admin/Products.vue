@@ -3,6 +3,10 @@
     <div class="content-section">
       <div class="section-header">
         <h2 class="section-title">商品管理</h2>
+        <div>
+          <input v-model="searchTerm" placeholder="搜索商品名称..." @keyup.enter="currentPage = 1" class="search-input" />
+          <button class="btn btn-primary" @click="currentPage = 1">搜索</button>
+        </div>
         <div class="section-actions">
           <button class="btn btn-primary" @click="showAddDialog = true">添加商品</button>
         </div>
@@ -720,5 +724,11 @@ export default {
  gap: 12px;
  margin-top: 10px;
  justify-content: flex-end;
+}
+.search-input {
+  padding: 6px 12px;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+  margin-right: 10px;
 }
 </style>

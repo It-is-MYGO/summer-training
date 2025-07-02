@@ -3,6 +3,10 @@
     <div class="content-section">
       <div class="section-header">
         <h2 class="section-title">品牌管理</h2>
+        <div>
+          <input v-model="searchKeyword" placeholder="搜索品牌名..." @keyup.enter="handleSearch" class="search-input" />
+          <button class="btn btn-primary" @click="handleSearch">搜索</button>
+        </div>
         <div class="section-actions">
           <button class="btn btn-primary" @click="showAddDialog = true">新增品牌</button>
         </div>
@@ -67,11 +71,16 @@ const editingBrand = ref(null)
 const brandForm = ref({ name: '', logo: '' })
 const page = ref(1)
 const pageSize = ref(5)
-const total = computed(() => brands.value.length)
+const searchKeyword = ref('')
+const total = computed(() => filteredBrands.value.length)
 const totalPages = computed(() => Math.ceil(total.value / pageSize.value) || 1)
+const filteredBrands = computed(() => {
+  if (!searchKeyword.value) return brands.value
+  return brands.value.filter(b => b.name.includes(searchKeyword.value))
+})
 const pagedBrands = computed(() => {
   const start = (page.value - 1) * pageSize.value
-  return brands.value.slice(start, start + pageSize.value)
+  return filteredBrands.value.slice(start, start + pageSize.value)
 })
 
 const fetchBrands = async () => {
@@ -126,6 +135,10 @@ function handlePageChange(p) {
     page.value = p
   }
 }
+
+function handleSearch() {
+  page.value = 1
+}
 </script>
 
 <style scoped>
@@ -145,8 +158,6 @@ function handlePageChange(p) {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 20px;
-  padding-bottom: 15px;
-  border-bottom: 1px solid #e9ecef;
 }
 .section-title {
   font-size: 1.5rem;
@@ -156,6 +167,12 @@ function handlePageChange(p) {
 .section-actions {
   display: flex;
   gap: 10px;
+}
+.search-input {
+  padding: 6px 12px;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+  margin-right: 10px;
 }
 .admin-table {
   width: 100%;

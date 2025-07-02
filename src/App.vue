@@ -24,7 +24,7 @@ export default {
   },
   setup() {
     const route = useRoute()
-    const hideSearchOn = ['/profile', '/login', '/register', '/profile/edit', '/admin', '/admin/dashboard', '/admin/users', '/admin/products', '/admin/posts', '/admin/charts', '/admin/settings']
+    const hideSearchOn = ['/profile', '/login', '/register', '/profile/edit', '/admin', '/admin/dashboard', '/admin/users', '/admin/products', '/admin/posts', '/admin/charts', '/admin/settings', '/admin/brands']
     const isAdmin = ref(false)
 
     const isAdminRoute = computed(() => {
