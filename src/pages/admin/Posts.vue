@@ -4,7 +4,7 @@
       <div class="section-header">
         <h2>动态管理</h2>
         <div>
-          <select v-model="statusFilter" class="search-input" style="width:120px;margin-right:10px">
+          <select v-model="statusFilter" @change="fetchPosts" class="search-input" style="width:120px;margin-right:10px">
             <option value="">全部</option>
             <option value="pending">待审核</option>
             <option value="approved">已通过</option>
@@ -117,13 +117,25 @@ const statusFilter = ref("")
 const reviewingId = ref(null)
 const reviewingType = ref("")
 
+function logToServer(msg, data) {
+  fetch('/api/log', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ msg, data })
+  }).catch(err => {
+    // 日志发送失败时弹窗提示
+    alert('日志发送到后端失败: ' + err)
+  });
+}
+
 function fetchPosts() {
+  console.log('fetchPosts called', statusFilter.value)
   loading.value = true
-  const params = { page: page.value, pageSize: pageSize.value, keyword: searchKeyword.value, status: statusFilter.value, all: 'true' }
-  console.log('[fetchPosts] 请求参数:', params)
+  const params = { page: page.value, pageSize: pageSize.value, keyword: searchKeyword.value, status: statusFilter.value }
+  logToServer('[前端 fetchPosts] 请求参数:', params)
   postsAPI.getAdminPosts(params)
     .then(async res => {
-      console.log('[fetchPosts] 接口返回:', res)
+      logToServer('[前端 fetchPosts] 接口返回:', res)
       if (res.code === 0 && res.data) {
         // 对每个动态获取评论列表
         const list = await Promise.all(res.data.list.map(async post => {
