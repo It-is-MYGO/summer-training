@@ -3,10 +3,6 @@
     <div class="content-section">
       <div class="section-header">
         <h2 class="section-title">商品管理</h2>
-        <div>
-          <input v-model="searchTerm" placeholder="搜索商品名称..." @keyup.enter="currentPage = 1" class="search-input" />
-          <button class="btn btn-primary" @click="currentPage = 1">搜索</button>
-        </div>
         <div class="section-actions">
           <button class="btn btn-primary" @click="showAddDialog = true">添加商品</button>
         </div>
@@ -87,7 +83,12 @@
             <div class="form-row form-row-inline">
               <div class="form-group">
               <label>平台</label>
-              <input v-model="editForm.platform" placeholder="如 京东/天猫/拼多多/苏宁" />
+              <select v-model="editForm.platform">
+                <option value="jd">京东</option>
+                <option value="tmall">天猫</option>
+                <option value="pdd">拼多多</option>
+                <option value="suning">苏宁</option>
+              </select>
             </div>
               <div class="form-group">
               <label>价格</label>
@@ -107,27 +108,22 @@
           <tr>
             <th>ID</th>
             <th>商品名称</th>
-            <th>当前价格</th>
-            <th>平台</th>
+            <th>平台及当前价格</th>
             <th>收藏次数</th>
             <th>状态</th>
             <th>操作</th>
           </tr>
         </thead>
         <tbody>
-          <tr v-for="product in filteredProducts" :key="product.id">
+          <tr v-for="product in pagedProducts" :key="product.id">
             <td>{{ product.id }}</td>
             <td>{{ product.name }}</td>
-            <td>{{ product.price }}</td>
             <td>
-              <span 
-                class="platform-badge" 
-                v-for="platform in product.platforms" 
-                :key="platform"
-                :style="{ background: platformColors[platform] || '#eee', color: '#fff' }"
-              >
-                {{ platformNames[platform] || platform }}
-              </span>
+              <div style="display: flex; flex-wrap: wrap; gap: 6px; align-items: center;">
+                <span v-for="p in product.platformPrices" :key="p.platform" class="platform-badge" :style="{ background: platformColors[p.platform] || '#eee', color: '#fff' }">
+                  {{ platformNames[p.platform] || p.platform }} {{ p.price ? `¥${p.price}` : '暂无' }}
+                </span>
+              </div>
             </td>
             <td>{{ product.favoriteCount }}</td>
             <td>
@@ -209,11 +205,10 @@ export default {
     }
   },
   computed: {
-    filteredProducts() {
-      if (!this.searchTerm) return this.products
-      return this.products.filter(product => 
-        product.name && product.name.toLowerCase().includes(this.searchTerm.toLowerCase())
-      )
+    pagedProducts() {
+      // 分页逻辑
+      const start = (this.currentPage - 1) * this.pageSize
+      return this.products.slice(start, start + this.pageSize)
     },
     totalPages() {
       return Math.ceil(this.total / this.pageSize) || 1
@@ -235,13 +230,35 @@ export default {
         })
         const result = await response.json()
         if (result.code === 0) {
-          this.products = result.data.list.map(product => ({
-            id: product.id,
-            name: product.title,
-            price: product.price ? `¥${product.price}` : '暂无',
-            platforms: product.platform ? [this.mapPlatform(product.platform)] : [],
-            favoriteCount: product.favorite_count || 0,
-            status: product.status || 'active'
+          // 并发请求每个商品的所有平台最新价格
+          this.products = await Promise.all(result.data.list.map(async product => {
+            let platformPrices = []
+            try {
+              const res = await fetch(`/api/products/${product.id}/platform-prices`, {
+                headers: {
+                  'Authorization': `Bearer ${localStorage.getItem('token')}`
+                }
+              })
+              platformPrices = await res.json()
+              // 兼容后端返回格式
+              if (platformPrices && platformPrices.length && platformPrices[0].platform) {
+                platformPrices = platformPrices.map(p => ({
+                  platform: this.mapPlatform(p.platform),
+                  price: p.price
+                }))
+              } else {
+                platformPrices = []
+              }
+            } catch (e) {
+              platformPrices = []
+            }
+            return {
+              id: product.id,
+              name: product.title,
+              platformPrices,
+              favoriteCount: product.favorite_count || 0,
+              status: product.status || 'active'
+            }
           }))
           this.total = result.data.total
           this.currentPage = result.data.page
@@ -311,12 +328,17 @@ export default {
           }
         })
         const result = await response.json()
-        
         if (result.code === 0) {
-          // 使用标准格式的响应数据
           const productDetail = result.data
-          console.log('获取到的商品详情:', productDetail)
-          
+          let platform = ''
+          let price = ''
+          if (productDetail.prices && Array.isArray(productDetail.prices) && productDetail.prices.length > 0) {
+            platform = productDetail.prices[0].platform
+            price = productDetail.prices[0].price
+          } else if (productDetail.platform && productDetail.price) {
+            platform = this.mapPlatform(productDetail.platform)
+            price = productDetail.price
+          }
           this.editForm = {
             id: productDetail.id,
             title: productDetail.title || productDetail.name || '',
@@ -326,15 +348,9 @@ export default {
             brand_id: productDetail.brand_id || '',
             is_hot: productDetail.is_hot || 0,
             is_drop: productDetail.is_drop || 0,
-            platform: '',
-            price: ''
+            platform,
+            price
           }
-          
-          // 如果有当前价格，也显示在价格字段中
-          if (productDetail.current_price || productDetail.price) {
-            this.editForm.price = productDetail.current_price || productDetail.price
-          }
-          
           this.showEditDialog = true
         } else {
           console.error('API返回错误:', result)
@@ -431,6 +447,10 @@ export default {
  padding: 25px;
  box-shadow: 0 5px 15px rgba(0,0,0,0.05);
  margin-bottom: 25px;
+ width: 1200px;
+ max-width: 100vw;
+ margin-left: auto;
+ margin-right: auto;
 }
 
 .section-header {
@@ -455,23 +475,6 @@ export default {
 .content-page.active {
  display: block;
  animation: fadeIn 0.4s ease;
-}
-
-.content-section {
- background: white;
- border-radius: 15px;
- padding: 25px;
- box-shadow: 0 5px 15px rgba(0,0,0,0.05);
- margin-bottom: 25px;
-}
-
-.section-header {
- display: flex;
- justify-content: space-between;
- align-items: center;
- margin-bottom: 20px;
- padding-bottom: 15px;
- border-bottom: 1px solid var(--light-gray);
 }
 
 .section-title {
@@ -511,183 +514,150 @@ export default {
 }
 
 .admin-table {
- width: 100%;
- border-collapse: collapse;
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+  overflow: hidden;
+  margin-top: 18px;
 }
-
-.admin-table th {
- background-color: var(--light);
- text-align: left;
- padding: 15px;
- font-weight: 600;
- color: var(--gray);
- border-bottom: 1px solid var(--light-gray);
-}
-
+.admin-table th,
 .admin-table td {
- padding: 15px;
- border-bottom: 1px solid var(--light-gray);
+  text-align: center;
+  vertical-align: middle;
+  border-bottom: 1px solid #f0f0f0;
+  border-right: 1px solid #f0f0f0;
+  padding: 14px 8px;
+  font-size: 1rem;
+  background: #fff;
+  transition: background 0.2s;
 }
-
+.admin-table th:last-child,
+.admin-table td:last-child {
+  border-right: none;
+}
 .admin-table tr:last-child td {
- border-bottom: none;
+  border-bottom: none;
 }
-
-.admin-table tr:hover {
- background-color: rgba(67, 97, 238, 0.03);
+.admin-table tbody tr:hover {
+  background: #f6faff;
 }
-
-.status-badge {
- padding: 5px 10px;
- border-radius: 20px;
- font-size: 0.85rem;
- font-weight: 500;
+.admin-table th {
+  background: #f8fafd;
+  font-weight: 700;
+  font-size: 1.05rem;
 }
-
-.status-active {
- background-color: rgba(76, 201, 240, 0.1);
- color: #4cc9f0;
+.admin-table th:nth-child(2),
+.admin-table td:nth-child(2),
+.admin-table th:nth-child(3),
+.admin-table td:nth-child(3) {
+  max-width: 260px;
+  word-break: break-all;
+  white-space: normal;
 }
-
-.status-banned {
- background-color: rgba(247, 37, 133, 0.1);
- color: #f72585;
+.admin-table th:nth-child(6),
+.admin-table td:nth-child(6) {
+  width: 140px;
+  min-width: 110px;
+  text-align: center;
 }
 
 .btn {
- padding: 8px 15px;
- border-radius: 6px;
- border: none;
- font-weight: 500;
- cursor: pointer;
- transition: all 0.3s ease;
- display: inline-flex;
- align-items: center;
- justify-content: center;
- gap: 5px;
+  border: none;
+  border-radius: 22px;
+  padding: 7px 20px;
+  font-size: 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.18s cubic-bezier(.4,2,.6,1);
+  box-shadow: 0 2px 8px rgba(80,120,255,0.06);
 }
-
-.btn-sm {
- padding: 5px 10px;
- font-size: 0.85rem;
-}
-
 .btn-primary {
- background: var(--primary);
- color: white;
+  background: linear-gradient(90deg, #4f8cff 0%, #3ad1ff 100%);
+  color: #fff;
 }
-
 .btn-danger {
- background: var(--warning);
- color: white;
+  background: linear-gradient(90deg, #ff5f6d 0%, #ffc371 100%);
+  color: #fff;
 }
-
 .btn-outline {
- background: transparent;
- border: 1px solid var(--primary);
- color: var(--primary);
+  background: transparent;
+  border: 1.5px solid #4f8cff;
+  color: #4f8cff;
 }
-
 .btn:hover {
- opacity: 0.9;
- transform: translateY(-2px);
+  opacity: 0.92;
+  transform: translateY(-2px) scale(1.04);
+  box-shadow: 0 4px 16px rgba(80,120,255,0.13);
+}
+.btn:active {
+  opacity: 0.85;
+  transform: scale(0.98);
+}
+.btn-sm {
+  padding: 5px 12px;
+  font-size: 0.95rem;
 }
 
-.user-actions {
- display: flex;
- gap: 8px;
+.status-badge {
+  display: inline-block;
+  padding: 4px 14px;
+  border-radius: 16px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #fff;
+  background: #bdbdbd;
+  letter-spacing: 1px;
 }
-
-.pagination {
- display: flex;
- justify-content: center;
- margin-top: 25px;
- gap: 10px;
+.status-active {
+  background: linear-gradient(90deg, #4f8cff 0%, #3ad1ff 100%);
 }
-
-.page-item {
- width: 35px;
- height: 35px;
- display: flex;
- align-items: center;
- justify-content: center;
- border-radius: 8px;
- background: var(--light);
- cursor: pointer;
- transition: all 0.3s ease;
+.status-banned {
+  background: linear-gradient(90deg, #ff5f6d 0%, #ffc371 100%);
 }
-
-.page-item:hover, .page-item.active {
- background: var(--primary);
- color: white;
-}
-
 .platform-badge {
- display: inline-flex;
- align-items: center;
- padding: 4px 10px;
- border-radius: 20px;
- font-size: 0.85rem;
- margin-right: 5px;
- font-weight: 600;
- border: none;
-}
-
-.platform-badge i {
- margin-right: 5px;
- color: var(--primary);
-}
-
-@keyframes fadeIn {
- from { opacity: 0; transform: translateY(10px); }
- to { opacity: 1; transform: translateY(0); }
-}
-@media (max-width: 768px) {
-  .search-box input {
-    width: 150px;
-  }
-  
-  .section-actions {
-    flex-wrap: wrap;
-  }
-  
-  .form-row-inline {
-    flex-direction: column;
-    gap: 8px;
-  }
-  
-  .dialog {
-    margin: 20px;
-    max-width: calc(100vw - 40px);
-  }
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 0.92rem;
+  margin-right: 5px;
+  font-weight: 600;
+  border: none;
+  box-shadow: 0 1px 4px rgba(80,120,255,0.07);
+  letter-spacing: 0.5px;
 }
 
 .dialog-mask {
- position: fixed;
- left: 0; top: 0; right: 0; bottom: 0;
- background: rgba(0,0,0,0.25);
- z-index: 1000;
- display: flex;
- align-items: center;
- justify-content: center;
+  position: fixed;
+  left: 0; top: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.22);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(2.5px);
 }
 .dialog {
   background: #fff;
-  border-radius: 12px;
-  padding: 32px 28px 20px 28px;
+  border-radius: 18px;
+  padding: 36px 32px 24px 32px;
   min-width: 340px;
   max-width: 600px;
   max-height: 90vh;
   overflow-y: auto;
-  box-shadow: 0 8px 32px rgba(0,0,0,0.12);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.13);
   position: relative;
+  animation: fadeIn 0.35s cubic-bezier(.4,2,.6,1);
 }
 .dialog h3 {
- margin-top: 0;
- margin-bottom: 18px;
- font-size: 1.2rem;
- font-weight: 600;
- color: var(--primary);
+  margin-top: 0;
+  margin-bottom: 18px;
+  font-size: 1.22rem;
+  font-weight: 700;
+  color: #4f8cff;
 }
 .form-row {
  margin-bottom: 14px;
@@ -730,5 +700,57 @@ export default {
   border-radius: 6px;
   border: 1px solid #ccc;
   margin-right: 10px;
+}
+
+.pagination {
+  display: flex;
+  justify-content: center;
+  margin-top: 28px;
+  gap: 12px;
+}
+.page-item {
+  width: 38px;
+  height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  background: #f8fafd;
+  color: #4f8cff;
+  font-weight: 600;
+  font-size: 1.08rem;
+  cursor: pointer;
+  transition: all 0.22s cubic-bezier(.4,2,.6,1);
+  box-shadow: 0 2px 8px rgba(80,120,255,0.06);
+}
+.page-item:hover, .page-item.active {
+  background: linear-gradient(90deg, #4f8cff 0%, #3ad1ff 100%);
+  color: #fff;
+  transform: scale(1.08);
+}
+
+.user-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  justify-content: center;
+  align-items: center;
+  height: 100%;
+  width: 100%;
+}
+
+@media (max-width: 768px) {
+  .admin-table th, .admin-table td {
+    font-size: 0.92rem;
+    padding: 8px 2px;
+  }
+  .dialog {
+    margin: 12px;
+    max-width: calc(100vw - 24px);
+    padding: 18px 8px 12px 8px;
+  }
+  .pagination {
+    gap: 6px;
+  }
 }
 </style>
