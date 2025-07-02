@@ -236,10 +236,12 @@ async function handleCollect(postId) {
       const post = posts.value.find(p => p.id === postId)
       if (post) {
         post.isCollected = response.data.isCollected
+        post.collections = response.data.collections
       }
       // 更新详情页
       if (selectedPost.value && selectedPost.value.id === postId) {
         selectedPost.value.isCollected = response.data.isCollected
+        selectedPost.value.collections = response.data.collections
         if (selectedPost.value !== post) {
           selectedPost.value = { ...selectedPost.value }
         }
