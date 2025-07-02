@@ -4,7 +4,7 @@
       <img :src="postAvatarUrl" class="user-avatar" @error="handleAvatarError" />
       <div class="user-info">
         <div class="username">{{ post.username }}</div>
-        <div class="post-time">{{ post.time }}</div>
+        <div class="post-time">{{ formatPostTime(post.time || post.createdAt) }}</div>
       </div>
     </div>
     <div class="detail-content">
@@ -53,7 +53,7 @@
           <div class="comment-content">
             <div class="comment-header">
               <div class="comment-author">{{ comment.username }}</div>
-              <div class="comment-time">{{ formatTime(comment.createdAt) }}</div>
+              <div class="comment-time">{{ formatCommentTimeDisplay(comment.createdAt) }}</div>
             </div>
             <div class="comment-text">{{ comment.content }}</div>
           </div>
@@ -132,6 +132,7 @@
 <script setup>
 import { ref, watch, computed } from 'vue'
 import { getAvatarUrl, handleAvatarError } from '@/utils/avatar.js'
+import { formatTime, formatCommentTime } from '@/utils/time.js'
 
 const props = defineProps({
   post: Object,
@@ -192,19 +193,14 @@ function canDeleteComment(comment) {
   return false
 }
 
-// 格式化时间
-function formatTime(timeStr) {
-  if (!timeStr) return ''
-  const date = new Date(timeStr)
-  const now = new Date()
-  const diff = now - date
-  
-  if (diff < 60000) return '刚刚'
-  if (diff < 3600000) return `${Math.floor(diff / 60000)}分钟前`
-  if (diff < 86400000) return `${Math.floor(diff / 3600000)}小时前`
-  if (diff < 2592000000) return `${Math.floor(diff / 86400000)}天前`
-  
-  return date.toLocaleDateString()
+// 格式化动态时间
+function formatPostTime(time) {
+  return formatTime(time)
+}
+
+// 格式化评论时间
+function formatCommentTimeDisplay(timeStr) {
+  return formatCommentTime(timeStr)
 }
 
 // 获取评论头像URL

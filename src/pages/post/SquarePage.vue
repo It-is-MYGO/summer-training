@@ -119,6 +119,7 @@ import { postsAPI } from '@/api/posts.js'
 import DynamicCard from './components/DynamicCard.vue';
 import TrendingList from './components/TrendingList.vue';
 import DynamicDetailContent from './components/DynamicDetailContent.vue';
+import { formatTime } from '@/utils/time.js';
 
 const store = inject('store')
 

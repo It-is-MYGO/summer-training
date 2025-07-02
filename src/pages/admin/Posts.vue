@@ -4,6 +4,12 @@
       <div class="section-header">
         <h2>动态管理</h2>
         <div>
+          <select v-model="statusFilter" class="search-input" style="width:120px;margin-right:10px">
+            <option value="">全部</option>
+            <option value="pending">待审核</option>
+            <option value="approved">已通过</option>
+            <option value="rejected">未通过</option>
+          </select>
           <input v-model="searchKeyword" placeholder="搜索内容..." @keyup.enter="fetchPosts" class="search-input" />
           <button class="btn btn-primary" @click="fetchPosts">搜索</button>
         </div>
@@ -39,6 +45,17 @@
           <div class="card-footer">
             <span>评论数：{{ post.comments }}</span>
             <span>点赞数：{{ post.likes }}</span>
+            <span>状态：{{ statusText(post.status) }}</span>
+          </div>
+          <div v-if="post.status === 'pending'" class="audit-actions">
+            <button class="btn btn-primary btn-sm" :disabled="reviewingId===post.id && reviewingType==='approved'" @click="handleReview(post.id, 'approved')">
+              <span v-if="reviewingId===post.id && reviewingType==='approved'" class="loading-spinner"></span>
+              通过
+            </button>
+            <button class="btn btn-danger btn-sm" :disabled="reviewingId===post.id && reviewingType==='rejected'" @click="handleReview(post.id, 'rejected')">
+              <span v-if="reviewingId===post.id && reviewingType==='rejected'" class="loading-spinner"></span>
+              驳回
+            </button>
           </div>
           <div class="comments-section">
             <div class="comments-header">评论列表</div>
@@ -80,7 +97,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import { postsAPI } from '../../api/posts.js'
 
 const posts = ref([])
@@ -96,11 +113,17 @@ const message = ref('')
 const messageType = ref('success')
 const AVATAR_BASE_URL = 'http://localhost:3000'
 const DEFAULT_AVATAR = 'https://picsum.photos/seed/user/40/40'
+const statusFilter = ref("")
+const reviewingId = ref(null)
+const reviewingType = ref("")
 
 function fetchPosts() {
   loading.value = true
-  postsAPI.getAdminPosts({ page: page.value, pageSize: pageSize.value, keyword: searchKeyword.value })
+  const params = { page: page.value, pageSize: pageSize.value, keyword: searchKeyword.value, status: statusFilter.value, all: 'true' }
+  console.log('[fetchPosts] 请求参数:', params)
+  postsAPI.getAdminPosts(params)
     .then(async res => {
+      console.log('[fetchPosts] 接口返回:', res)
       if (res.code === 0 && res.data) {
         // 对每个动态获取评论列表
         const list = await Promise.all(res.data.list.map(async post => {
@@ -111,7 +134,6 @@ function fetchPosts() {
               commentList = commentRes.data.list
             }
           } catch {}
-          console.log('post.id:', post.id, 'post.images:', post.images)
           return { ...post, commentList }
         }))
         posts.value = list
@@ -179,7 +201,17 @@ function showMessage(text, type = 'success') {
 
 function formatTime(time) {
   if (!time) return ''
-  return new Date(time).toLocaleString()
+  const date = new Date(time)
+  if (isNaN(date.getTime())) return time
+  
+  // 直接使用本地时区格式化
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  const hours = String(date.getHours()).padStart(2, '0')
+  const minutes = String(date.getMinutes()).padStart(2, '0')
+  
+  return `${year}-${month}-${day} ${hours}:${minutes}`
 }
 
 function parseImages(images) {
@@ -216,6 +248,39 @@ function getAvatarUrl(post) {
 
 function handleAvatarError(event, post) {
   event.target.src = DEFAULT_AVATAR
+}
+
+watch([statusFilter], () => {
+  page.value = 1
+  fetchPosts()
+})
+
+function handleReview(id, status) {
+  reviewingId.value = id
+  reviewingType.value = status
+  postsAPI.reviewPost(id, status)
+    .then(res => {
+      if (res.code === 0) {
+        showMessage(status === 'approved' ? '审核通过' : '已驳回', 'success')
+        fetchPosts()
+      } else {
+        showMessage('操作失败', 'error')
+      }
+    })
+    .catch(() => showMessage('操作失败', 'error'))
+    .finally(() => {
+      reviewingId.value = null
+      reviewingType.value = ""
+    })
+}
+
+function statusText(status) {
+  switch (status) {
+    case 'pending': return '待审核'
+    case 'approved': return '已通过'
+    case 'rejected': return '未通过'
+    default: return status
+  }
 }
 
 onMounted(fetchPosts)

@@ -38,6 +38,14 @@
           <router-link to="/" class="nav-link">首页</router-link>
           <router-link to="/profile" class="nav-link">个人中心</router-link>
         </nav>
+        <div v-for="post in userPosts" :key="post.id" class="post-item">
+          <div class="post-content">
+            <!-- 你的动态内容展示代码 -->
+            <span class="post-status" :class="`status-${post.status}`">
+              {{ post.status === 'approved' ? '已通过' : post.status === 'pending' ? '待审核' : '未通过' }}
+            </span>
+          </div>
+        </div>
       </div>
     </template>
 
@@ -318,6 +326,22 @@
 
     @media (prefers-color-scheme: dark) {
       body { color: white; }
+    }
+
+    .status-approved {
+      color: #4caf50;
+      font-weight: bold;
+      margin-left: 8px;
+    }
+    .status-pending {
+      color: #ff9800;
+      font-weight: bold;
+      margin-left: 8px;
+    }
+    .status-rejected {
+      color: #f44336;
+      font-weight: bold;
+      margin-left: 8px;
     }
     </style>
   

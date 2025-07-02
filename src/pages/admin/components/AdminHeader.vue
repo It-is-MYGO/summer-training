@@ -18,33 +18,6 @@
         <i class="fas fa-chart-pie"></i> 图表分析
       </li>
     </ul>
-    <div class="admin-search" v-if="isAdminModule">
-      <input type="text" placeholder="搜索" v-model="searchValue" />
-      <button class="search-btn"><i class="fas fa-search"></i></button>
-    </div>
-    <div class="admin-actions">
-      <div class="admin-user" @click="toggleDropdown">
-        <div class="admin-avatar">A</div>
-        <span>admin</span>
-        <i class="fas fa-chevron-down" style="margin-left: 10px;"></i>
-      </div>
-    </div>
-    
-    <div class="dropdown-menu" v-show="showDropdown">
-      <div class="dropdown-item">
-        <i class="fas fa-user"></i>
-        <span>个人资料</span>
-      </div>
-      <div class="dropdown-item">
-        <i class="fas fa-cog"></i>
-        <span>账户设置</span>
-      </div>
-      <div class="dropdown-divider"></div>
-      <div class="dropdown-item" @click="logout">
-        <i class="fas fa-sign-out-alt"></i>
-        <span>退出登录</span>
-      </div>
-    </div>
   </div>
 </template>
 
@@ -154,31 +127,6 @@ export default {
   margin-right: 6px;
 }
 
-.admin-search {
-  display: flex;
-  align-items: center;
-  margin: 0 20px;
-  background: #f8f9fa;
-  border-radius: 6px;
-  padding: 4px 10px;
-}
-.admin-search input {
-  border: none;
-  background: transparent;
-  outline: none;
-  font-size: 1rem;
-  padding: 6px 8px;
-  min-width: 160px;
-}
-.search-btn {
-  background: transparent;
-  border: none;
-  color: #4361ee;
-  font-size: 1.2rem;
-  cursor: pointer;
-  padding: 4px 8px;
-}
-
 .admin-actions {
   display: flex;
   align-items: center;
@@ -202,42 +150,6 @@ export default {
   margin-right: 10px;
   color: var(--primary);
   font-weight: bold;
-}
-
-.dropdown-menu {
-  position: absolute;
-  top: 60px;
-  right: 20px;
-  background: white;
-  border-radius: 8px;
-  box-shadow: 0 5px 15px rgba(0,0,0,0.1);
-  width: 200px;
-  overflow: hidden;
-  z-index: 1000;
-}
-
-.dropdown-item {
-  padding: 12px 15px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  transition: background 0.3s;
-}
-
-.dropdown-item:hover {
-  background: var(--light);
-}
-
-.dropdown-item i {
-  margin-right: 10px;
-  width: 20px;
-  text-align: center;
-}
-
-.dropdown-divider {
-  height: 1px;
-  background: var(--light-gray);
-  margin: 5px 0;
 }
 
 .fade-in {

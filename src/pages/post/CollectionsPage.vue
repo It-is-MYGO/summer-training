@@ -116,6 +116,7 @@ import { ref, onMounted, inject, computed } from 'vue'
 import { postsAPI } from '@/api/posts.js'
 import DynamicCard from './components/DynamicCard.vue'
 import DynamicDetailContent from './components/DynamicDetailContent.vue'
+import { formatTime } from '@/utils/time.js'
 
 const store = inject('store')
 

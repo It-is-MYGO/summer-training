@@ -10,7 +10,7 @@
       />
       <div class="user-info">
         <div class="username">{{ post.username }}</div>
-        <div class="post-time">{{ post.time }}</div>
+        <div class="post-time">{{ formatPostTime(post.time || post.createdAt) }}</div>
       </div>
       <!-- 编辑按钮 -->
       <div v-if="canEdit" class="edit-actions">
@@ -65,6 +65,7 @@
 import { computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { getAvatarUrl, handleAvatarError } from '@/utils/avatar.js'
+import { formatTime } from '@/utils/time.js'
 
 const props = defineProps({ 
   post: Object 
@@ -113,6 +114,11 @@ function getFullImageUrl(url) {
   if (!url) return ''
   if (url.startsWith('http')) return url
   return 'http://localhost:3000' + url
+}
+
+// 格式化动态时间
+function formatPostTime(time) {
+  return formatTime(time)
 }
 
 // 调试：监听likes变化
