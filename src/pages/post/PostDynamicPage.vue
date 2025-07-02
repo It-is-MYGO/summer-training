@@ -200,7 +200,7 @@ async function submitPost() {
           'success'
         )
       }
-      router.push('/square')
+      router.push('/my-dynamic')
     } else {
       if (store) store.showNotification(response.message || '操作失败', 'error')
     }
@@ -214,7 +214,7 @@ async function submitPost() {
 
 function cancelEdit() {
   if (confirm('确定要取消编辑吗？未保存的内容将丢失。')) {
-    router.push('/square')
+    router.push('/my-dynamic')
   }
 }
 

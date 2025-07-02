@@ -108,12 +108,17 @@ export const postsAPI = {
   },
 
   // 管理员专用API
-  getAdminPosts(params) { return api.get('/admin/posts', { params }); },
+  getAdminPosts(params) { return api.get('/posts', { params }); },
   deleteAdminPost(id) { return api.delete(`/admin/posts/${id}`); },
   getAdminPostDetail(id) { return api.get(`/admin/posts/${id}`); },
   // 管理员删除评论
   deleteAdminComment(postId, commentId) {
     return api.delete(`/admin/posts/${postId}/comments/${commentId}`);
+  },
+
+  // 审核动态（管理员）
+  reviewPost(id, status) {
+    return api.patch(`/posts/${id}/status`, { status });
   },
 }
 

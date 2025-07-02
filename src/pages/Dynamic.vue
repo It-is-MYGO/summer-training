@@ -52,7 +52,12 @@
               />
               <div class="user-details">
                 <div class="username">{{ post.username }}</div>
-                <div class="post-time">{{ post.time }}</div>
+                <div class="post-time">{{ formatPostTime(post.time || post.createdAt) }}</div>
+                <!-- 审核状态显示 -->
+                <div v-if="post.status && post.status !== 'approved'" class="status-badge" :class="`status-${post.status}`">
+                  <i :class="getStatusIcon(post.status)"></i>
+                  {{ getStatusText(post.status) }}
+                </div>
               </div>
             </div>
             <div class="post-actions">
@@ -146,6 +151,7 @@ import { useRouter } from 'vue-router'
 import DynamicDetailContent from './post/components/DynamicDetailContent.vue'
 import { postsAPI } from '@/api/posts.js'
 import { getAvatarUrl, handleAvatarError } from '@/utils/avatar.js'
+import { formatTime } from '@/utils/time.js'
 import axios from 'axios'
 
 const router = useRouter()
@@ -268,14 +274,38 @@ function editPost(postId) {
 }
 
 // 删除动态
-function deletePost(postId) {
+async function deletePost(postId) {
   if (confirm('确定要删除这条动态吗？\n删除后将无法恢复。')) {
     try {
-      userPosts.value = userPosts.value.filter(p => p.id !== postId)
-      alert('动态删除成功！')
-      window.dispatchEvent(new Event('loginStatusChanged'))
+      const response = await postsAPI.deletePost(postId)
+      if (response.code === 0) {
+        // 从本地列表中移除
+        userPosts.value = userPosts.value.filter(p => p.id !== postId)
+        
+        // 如果删除的是当前查看的详情，关闭详情
+        if (selectedPost.value && selectedPost.value.id === postId) {
+          closeDetail()
+        }
+        
+        if (store) {
+          store.showNotification('动态删除成功', 'success')
+        } else {
+          alert('动态删除成功！')
+        }
+      } else {
+        if (store) {
+          store.showNotification(response.message || '删除失败', 'error')
+        } else {
+          alert(response.message || '删除失败')
+        }
+      }
     } catch (error) {
-      alert('删除动态时出现错误，请重试')
+      console.error('删除动态失败:', error)
+      if (store) {
+        store.showNotification('删除失败，请稍后重试', 'error')
+      } else {
+        alert('删除动态时出现错误，请重试')
+      }
     }
   }
 }
@@ -481,6 +511,37 @@ function getFullImageUrl(url) {
   return 'http://localhost:3000' + url
 }
 
+// 获取状态图标
+function getStatusIcon(status) {
+  switch (status) {
+    case 'pending':
+      return 'fas fa-clock'
+    case 'rejected':
+      return 'fas fa-times-circle'
+    default:
+      return 'fas fa-check-circle'
+  }
+}
+
+// 获取状态文本
+function getStatusText(status) {
+  switch (status) {
+    case 'pending':
+      return '审核中'
+    case 'rejected':
+      return '审核失败'
+    case 'approved':
+      return '审核通过'
+    default:
+      return status
+  }
+}
+
+// 格式化动态时间
+function formatPostTime(time) {
+  return formatTime(time)
+}
+
 onMounted(() => {
   checkLoginStatus()
   getUserPosts()
@@ -652,6 +713,33 @@ onMounted(() => {
 .post-time {
   font-size: 0.9rem;
   color: var(--gray);
+}
+
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  margin-top: 4px;
+}
+
+.status-badge i {
+  margin-right: 4px;
+  font-size: 0.9rem;
+}
+
+.status-pending {
+  background: #fff3cd;
+  color: #856404;
+  border: 1px solid #ffeaa7;
+}
+
+.status-rejected {
+  background: #f8d7da;
+  color: #721c24;
+  border: 1px solid #f5c6cb;
 }
 
 .post-actions {
