@@ -391,6 +391,7 @@ export default {
     async submitEditProduct() {
       try {
         const { id, platform, price, ...data } = this.editForm
+        if (data.brand_id === '') data.brand_id = null;
         const response = await fetch(`/api/products/${id}`, {
           method: 'PUT',
           headers: {
@@ -402,13 +403,20 @@ export default {
         const result = await response.json()
         if (result.code === 0) {
           if (platform && price) {
+            const platformMap = {
+              jd: '京东',
+              tmall: '天猫',
+              pdd: '拼多多',
+              suning: '苏宁'
+            };
+            const zhPlatform = platformMap[platform] || platform;
             await fetch('/api/products/product-prices', {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${localStorage.getItem('token')}`
               },
-              body: JSON.stringify({ product_id: id, platform, price })
+              body: JSON.stringify({ product_id: id, platform: zhPlatform, price })
             })
           }
           this.showEditDialog = false
