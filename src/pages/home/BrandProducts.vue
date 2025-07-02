@@ -31,7 +31,6 @@
           </div>
           <div class="product-info">
             <div class="product-title">{{ item.title }}</div>
-            <div class="product-price">{{ item.current_price || item.price || '暂无价格' }}</div>
           </div>
         </div>
       </div>
@@ -197,7 +196,7 @@ function changePage(page) {
 
 .products-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  grid-template-columns: repeat(3, 1fr);
   gap: 25px;
   margin-bottom: 30px;
 }
@@ -240,13 +239,6 @@ function changePage(page) {
   margin-bottom: 8px;
   height: 40px;
   overflow: hidden;
-}
-
-.product-price {
-  color: var(--warning);
-  font-size: 1.2rem;
-  font-weight: bold;
-  margin-bottom: 8px;
 }
 
 .platform-tags {

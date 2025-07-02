@@ -126,6 +126,11 @@ const defaultImg = '/default-product.png'
 
 console.log('userId:', userId, 'productId:', productId, 'user:', user)
 
+if (!productId) {
+  alert('商品ID无效，无法加载详情页');
+  // 可选：跳转回商品列表页
+}
+
 function onImgError(e) {
   e.target.src = defaultImg
 }

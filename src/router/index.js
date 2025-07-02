@@ -48,6 +48,21 @@ const routes = [
       { path: 'posts/:id', component: PostDetail },
       { path: 'charts', component: Charts }
     ]
+  },
+  {
+    path: '/products',
+    name: 'AllProducts',
+    component: () => import('../pages/home/AllProducts.vue')
+  },
+  {
+    path: '/search',
+    name: 'SearchResults',
+    component: () => import('../pages/home/SearchResults.vue')
+  },
+  {
+    path: '/favorites/search',
+    name: 'FavoritesSearchResults',
+    component: () => import('../pages/home/SearchResults.vue')
   }
 ]
 

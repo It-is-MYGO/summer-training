@@ -1,4 +1,9 @@
 <template>
+  <!-- 首页搜索框放到最顶部 -->
+  <div class="home-search-bar">
+    <input v-model="searchKeyword" @keyup.enter="onSearch" placeholder="搜索商品名称或描述..." class="search-input" />
+    <button @click="onSearch" class="search-btn">搜索</button>
+  </div>
   <section class="page-content">
     <div class="main-container">
       <!-- 快速入口区域 -->
@@ -46,6 +51,11 @@
         </div>
       </div>
 
+      <!-- 查看全部商品按钮 -->
+      <div style="text-align:center; margin: 30px 0;">
+        <button class="view-all-btn" @click="goToAllProducts">查看全部商品</button>
+      </div>
+
       <!-- 品牌专栏 -->
       <h2 class="section-title">
         <i class="fas fa-tags"></i> 品牌专栏
@@ -69,6 +79,19 @@
       <div class="brands-loading" v-else-if="brandsLoading">
         <i class="fas fa-spinner fa-spin"></i>
         <p>加载品牌中...</p>
+      </div>
+
+      <!-- 推荐商品 -->
+      <h2 class="section-title">为你推荐</h2>
+      <div class="products-grid">
+        <div class="product-card" v-for="item in recommendProducts" :key="item.id" @click="goToProduct(item.id)" style="cursor:pointer;">
+          <div class="product-image">
+            <img :src="item.img || item.image || defaultImg" :alt="item.title || item.name" @error="onImgError" />
+          </div>
+          <div class="product-info">
+            <div class="product-title">{{ item.title || item.name }}</div>
+          </div>
+        </div>
       </div>
 
       <h2 class="section-title">今日热门商品</h2>
@@ -114,7 +137,9 @@ const hotProducts = ref([])
 const dropProducts = ref([])
 const brands = ref([])
 const brandsLoading = ref(true)
+const recommendProducts = ref([])
 const defaultImg = '/default-product.png'
+const searchKeyword = ref('')
 
 onMounted(async () => {
   // 品牌列表
@@ -130,6 +155,37 @@ onMounted(async () => {
     brandsLoading.value = false
   }
 
+  // 推荐商品
+  try {
+    // 尝试多种可能的键名
+    let userId = localStorage.getItem('userId') || 
+                 localStorage.getItem('user_id') || 
+                 localStorage.getItem('id') || 
+                 localStorage.getItem('user')
+    // 如果userId是JSON字符串，解析并提取id
+    if (userId && typeof userId === 'string') {
+      try {
+        const userObj = JSON.parse(userId)
+        if (userObj && userObj.id) {
+          userId = userObj.id.toString()
+        }
+      } catch (e) {
+        // 如果不是JSON，保持原值
+      }
+    }
+    // 如果没有userId，使用默认用户ID 1
+    if (!userId) {
+      userId = '1'
+    }
+    if (userId) {
+      const recRes = await fetch(`/api/recommend/user/${userId}`)
+      const recResult = await recRes.json()
+      if (recResult.code === 0) {
+        recommendProducts.value = recResult.data
+      }
+    }
+  } catch (error) {}
+
   // 热门商品
   const hotRes = await fetch('/api/products/hot')
   hotProducts.value = await hotRes.json()
@@ -140,6 +196,10 @@ onMounted(async () => {
 })
 
 function goToProduct(id) {
+  if (!id) {
+    alert('商品ID无效，无法跳转详情页');
+    return;
+  }
   router.push(`/product/${id}`)
 }
 
@@ -149,6 +209,15 @@ function goToBrand(brandId) {
 
 function onImgError(e) {
   e.target.src = defaultImg
+}
+
+function goToAllProducts() {
+  router.push('/products')
+}
+
+function onSearch() {
+  if (!searchKeyword.value.trim()) return
+  router.push(`/search?keyword=${encodeURIComponent(searchKeyword.value.trim())}`)
 }
 </script>
 
@@ -396,5 +465,55 @@ function onImgError(e) {
   .brand-name {
     font-size: 1rem;
   }
+}
+
+.view-all-btn {
+  background: var(--primary);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 12px 32px;
+  font-size: 1.1rem;
+  font-weight: bold;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  transition: background 0.2s;
+}
+.view-all-btn:hover {
+  background: var(--secondary);
+}
+
+.home-search-bar {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: 0 0 30px 0;
+  padding-top: 30px;
+  background: #fff;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.03);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+.search-input {
+  width: 320px;
+  padding: 10px 16px;
+  border: 1px solid var(--light-gray);
+  border-radius: 8px 0 0 8px;
+  font-size: 1rem;
+  outline: none;
+}
+.search-btn {
+  padding: 10px 24px;
+  border: none;
+  background: var(--primary);
+  color: #fff;
+  border-radius: 0 8px 8px 0;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.search-btn:hover {
+  background: var(--secondary);
 }
 </style>

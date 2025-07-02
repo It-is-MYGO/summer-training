@@ -3,7 +3,7 @@
     <AdminSidebar v-if="isAdminRoute && isAdmin" />
     <Sidebar v-else />
     <div class="main-content" :class="{ 'admin-content': isAdminRoute && isAdmin }">
-      <SearchBox v-if="!hideSearchOn.includes(route.path)" />
+      <!-- <SearchBox v-if="!hideSearchOn.includes(route.path)" /> -->
       <router-view />
     </div>
   </div>
@@ -12,15 +12,15 @@
 <script>
 import Sidebar from './components/Sidebar.vue'
 import AdminSidebar from './pages/admin/components/AdminSidebar.vue'
-import SearchBox from './components/SearchBox.vue'
+// import SearchBox from './components/SearchBox.vue'
 import { useRoute } from 'vue-router'
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 
 export default {
   components: {
     Sidebar,
-    AdminSidebar,
-    SearchBox
+    AdminSidebar
+    // SearchBox
   },
   setup() {
     const route = useRoute()

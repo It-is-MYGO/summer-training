@@ -1,4 +1,9 @@
 <template>
+  <!-- 收藏夹搜索栏放到最顶部 -->
+  <div class="favorites-search-bar">
+    <input v-model="searchKeyword" @keyup.enter="onSearch" placeholder="搜索已收藏商品..." class="search-input" />
+    <button @click="onSearch" class="search-btn">搜索</button>
+  </div>
   <section class="page-content">
     <div class="container">
       <h2 class="section-title">我的收藏夹</h2>
@@ -53,6 +58,8 @@ const router = useRouter()
 const user = JSON.parse(localStorage.getItem('user') || '{}')
 const userId = user && user.id
 const defaultImg = '/default-product.png'
+const searchKeyword = ref('')
+
 function onImgError(e) {
   e.target.src = defaultImg
 }
@@ -101,7 +108,6 @@ async function fetchFavorites() {
 onMounted(fetchFavorites)
 
 function goToProduct(productId) {
-  console.log('跳转商品id:', productId)
   if (!productId) return
   router.push(`/product/${productId}`)
 }
@@ -180,6 +186,11 @@ async function saveAlertPrice(favoriteId, alertPrice) {
       favorite.saveStatus = null
     }, 3000)
   }
+}
+
+function onSearch() {
+  if (!searchKeyword.value.trim()) return
+  router.push(`/favorites/search?keyword=${encodeURIComponent(searchKeyword.value.trim())}`)
 }
 </script>
 
@@ -317,5 +328,38 @@ async function saveAlertPrice(favoriteId, alertPrice) {
     margin-bottom: 10px;
     margin-right: 0;
   }
+}
+.favorites-search-bar {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: 0 0 30px 0;
+  padding-top: 30px;
+  background: #fff;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.03);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+.search-input {
+  width: 320px;
+  padding: 10px 16px;
+  border: 1px solid var(--light-gray);
+  border-radius: 8px 0 0 8px;
+  font-size: 1rem;
+  outline: none;
+}
+.search-btn {
+  padding: 10px 24px;
+  border: none;
+  background: var(--primary);
+  color: #fff;
+  border-radius: 0 8px 8px 0;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.search-btn:hover {
+  background: var(--secondary);
 }
 </style>

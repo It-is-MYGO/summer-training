@@ -231,7 +231,8 @@ export default {
         })
         const result = await response.json()
         if (result.code === 0) {
-          this.products = result.data.list.map(product => ({
+          const products = (result.data && result.data.products) ? result.data.products : []
+          this.products = products.map(product => ({
             id: product.id,
             name: product.title,
             price: product.price ? `¥${product.price}` : '暂无',
