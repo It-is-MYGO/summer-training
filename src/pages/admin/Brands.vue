@@ -4,8 +4,8 @@
       <div class="section-header">
         <h2 class="section-title">品牌管理</h2>
         <div>
-          <input v-model="searchKeyword" placeholder="搜索品牌名..." @keyup.enter="handleSearch" class="search-input" />
-          <button class="btn btn-primary" @click="handleSearch">搜索</button>
+          <input v-model="searchKeyword" placeholder="搜索品牌名..." @keyup.enter="fetchBrands" class="search-input" />
+          <button class="btn btn-primary" @click="fetchBrands">搜索</button>
         </div>
         <div class="section-actions">
           <button class="btn btn-primary" @click="showAddDialog = true">新增品牌</button>
@@ -21,7 +21,7 @@
           </tr>
         </thead>
         <tbody>
-          <tr v-for="brand in pagedBrands" :key="brand.id">
+          <tr v-for="brand in brands" :key="brand.id">
             <td>{{ brand.id }}</td>
             <td>{{ brand.name }}</td>
             <td>
@@ -72,20 +72,10 @@ const brandForm = ref({ name: '', logo: '' })
 const page = ref(1)
 const pageSize = ref(5)
 const searchKeyword = ref('')
-const total = computed(() => filteredBrands.value.length)
-const totalPages = computed(() => Math.ceil(total.value / pageSize.value) || 1)
-const filteredBrands = computed(() => {
-  if (!searchKeyword.value) return brands.value
-  return brands.value.filter(b => b.name.includes(searchKeyword.value))
-})
-const pagedBrands = computed(() => {
-  const start = (page.value - 1) * pageSize.value
-  return filteredBrands.value.slice(start, start + pageSize.value)
-})
 
 const fetchBrands = async () => {
-  const res = await axios.get('/api/brands')
-  brands.value = res.data.sort((a, b) => a.id - b.id)
+  const res = await axios.get('/api/brands', { params: { keyword: searchKeyword.value } })
+  brands.value = res.data.sort ? res.data.sort((a, b) => a.id - b.id) : res.data
   page.value = 1 // 每次刷新重置到第一页
 }
 
@@ -134,10 +124,6 @@ function handlePageChange(p) {
   if (p !== page.value && p > 0 && p <= totalPages.value) {
     page.value = p
   }
-}
-
-function handleSearch() {
-  page.value = 1
 }
 </script>
 
