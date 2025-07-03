@@ -15,6 +15,7 @@ import AdminSidebar from './pages/admin/components/AdminSidebar.vue'
 // import SearchBox from './components/SearchBox.vue'
 import { useRoute } from 'vue-router'
 import { ref, computed, onMounted, onUnmounted } from 'vue'
+import request from './utils/request'
 
 export default {
   components: {
@@ -26,6 +27,7 @@ export default {
     const route = useRoute()
     const hideSearchOn = ['/profile', '/login', '/register', '/profile/edit', '/admin', '/admin/dashboard', '/admin/users', '/admin/products', '/admin/posts', '/admin/charts', '/admin/settings', '/admin/brands']
     const isAdmin = ref(false)
+    let refreshTimer = null
 
     const isAdminRoute = computed(() => {
       return route.path.startsWith('/admin')
@@ -36,15 +38,36 @@ export default {
       isAdmin.value = user.role === 'admin'
     }
 
+    function startTokenRefresh() {
+      clearInterval(refreshTimer)
+      refreshTimer = setInterval(async () => {
+        const token = localStorage.getItem('token')
+        if (!token) return
+        try {
+          const res = await request.post('/auth/refresh')
+          if (res && res.token) {
+            localStorage.setItem('token', res.token)
+          }
+        } catch (e) {
+          localStorage.removeItem('token')
+          alert('登录已过期，请重新登录')
+          window.location.href = '/login'
+          clearInterval(refreshTimer)
+        }
+      }, 5 * 1000) // 5秒
+    }
+
     onMounted(() => {
       checkAdminStatus()
       window.addEventListener('storage', checkAdminStatus)
       window.addEventListener('loginStatusChanged', checkAdminStatus)
+      startTokenRefresh()
     })
 
     onUnmounted(() => {
       window.removeEventListener('storage', checkAdminStatus)
       window.removeEventListener('loginStatusChanged', checkAdminStatus)
+      clearInterval(refreshTimer)
     })
 
     return { 
