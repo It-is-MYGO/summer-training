@@ -223,17 +223,15 @@ export default {
     async loadProducts(page = 1) {
       this.loading = true
       try {
-        const response = await fetch(`/api/products?page=${page}&pageSize=${this.pageSize}`, {
+        const response = await fetch(`/api/products?page=${page}&pageSize=${this.pageSize}&includeOffline=true`, {
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('token')}`
           }
         })
         const result = await response.json()
-        console.log('API返回数据:', result) // 调试信息
         if (result.code === 0) {
           // 兼容不同的数据结构
           const productList = result.data.list || result.data.products || []
-          console.log('商品列表:', productList) // 调试信息
           // 并发请求每个商品的所有平台最新价格
           this.products = await Promise.all(productList.map(async product => {
             let platformPrices = []
@@ -285,6 +283,12 @@ export default {
     },
     async toggleProductStatus(product) {
       const newStatus = product.status == 1 ? 0 : 1
+      const action = newStatus == 1 ? '上架' : '下架'
+      
+      if (!confirm(`确定要${action}商品"${product.name}"吗？`)) {
+        return
+      }
+      
       try {
         const response = await fetch(`/api/products/${product.id}/status`, {
           method: 'PATCH',
@@ -296,12 +300,13 @@ export default {
         })
         const result = await response.json()
         if (result.code === 0) {
+          alert(`商品${action}成功！`)
           this.loadProducts(this.currentPage)
         } else {
-          alert('操作失败: ' + result.message)
+          alert(`${action}失败: ` + result.message)
         }
       } catch (error) {
-        alert('操作失败: ' + error)
+        alert(`${action}失败: ` + error)
       }
     },
     async deleteProduct(product) {
