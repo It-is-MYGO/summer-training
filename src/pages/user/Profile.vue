@@ -175,7 +175,19 @@
       event.target.value = ''
     }
 
-    function logout() {
+    async function logout() {
+      try {
+        const user = JSON.parse(localStorage.getItem('user') || '{}')
+        if (user && user.id) {
+          await axios.post('/api/log/user-logs', {
+            userId: user.id,
+            action: 'logout',
+            status: 'success'
+          })
+        }
+      } catch (e) {
+        // 可忽略
+      }
       localStorage.removeItem('token')
       localStorage.removeItem('user')
       window.dispatchEvent(new Event('loginStatusChanged'))

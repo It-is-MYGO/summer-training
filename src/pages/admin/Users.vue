@@ -8,6 +8,9 @@
             <span v-if="loading" class="loading-spinner"></span>
             刷新
           </button>
+          <button class="btn btn-primary" @click="openAllLogsModal">
+            查看实时日志
+          </button>
         </div>
       </div>
       
@@ -80,6 +83,9 @@
                 >
                   删除
                 </button>
+                <button class="btn btn-primary btn-sm" @click="openLogModal(user)">
+                  查看日志
+                </button>
               </td>
             </tr>
           </tbody>
@@ -111,12 +117,17 @@
     <div v-if="message" class="message-toast" :class="messageType">
       {{ message }}
     </div>
+    
+    <UserLogsModal v-if="showLogModal" :user="logUser" @close="closeLogModal" />
+    <AllLogsModal v-if="showAllLogsModal" @close="closeAllLogsModal" />
   </div>
 </template>
 
 <script setup>
 import { ref, onMounted } from 'vue'
 import { getAllUsers, updateUser, deleteUser as deleteUserApi } from '../../api/user.js'
+import UserLogsModal from './components/UserLogsModal.vue'
+import AllLogsModal from './components/AllLogsModal.vue'
 
 const users = ref([])
 const loading = ref(false)
@@ -126,6 +137,9 @@ const userToDelete = ref(null)
 const message = ref('')
 const messageType = ref('success')
 const currentUserId = ref(null)
+const showLogModal = ref(false)
+const logUser = ref(null)
+const showAllLogsModal = ref(false)
 
 // 头像基础URL
 const AVATAR_BASE_URL = 'http://localhost:3000'
@@ -233,6 +247,18 @@ function showMessage(text, type = 'success') {
     message.value = ''
   }, 3000)
 }
+
+function openLogModal(user) {
+  logUser.value = user
+  showLogModal.value = true
+}
+function closeLogModal() {
+  showLogModal.value = false
+  logUser.value = null
+}
+
+function openAllLogsModal() { showAllLogsModal.value = true }
+function closeAllLogsModal() { showAllLogsModal.value = false }
 </script>
 
 <style scoped>
@@ -266,7 +292,16 @@ function showMessage(text, type = 'success') {
 
 .header-actions {
   display: flex;
-  gap: 10px;
+  gap: 16px;
+}
+
+.header-actions .btn {
+  min-width: 110px;
+  height: 40px;
+  font-size: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .admin-table {
