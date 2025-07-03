@@ -1,6 +1,6 @@
 <template>
   <div class="page-container">
-    <TrendingList />
+    <TrendingList @open-detail="openDetail" />
     <div class="page-header">
       <h1 class="page-title"><i class="fas fa-comments"></i> 动态广场</h1>
       <router-link to="/post/create" class="btn btn-primary publish-btn">
