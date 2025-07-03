@@ -229,9 +229,13 @@ export default {
           }
         })
         const result = await response.json()
+        console.log('API返回数据:', result) // 调试信息
         if (result.code === 0) {
+          // 兼容不同的数据结构
+          const productList = result.data.list || result.data.products || []
+          console.log('商品列表:', productList) // 调试信息
           // 并发请求每个商品的所有平台最新价格
-          this.products = await Promise.all(result.data.list.map(async product => {
+          this.products = await Promise.all(productList.map(async product => {
             let platformPrices = []
             try {
               const res = await fetch(`/api/products/${product.id}/platform-prices`, {
@@ -260,8 +264,8 @@ export default {
               status: product.status || 'active'
             }
           }))
-          this.total = result.data.total
-          this.currentPage = result.data.page
+          this.total = result.data.total || 0
+          this.currentPage = result.data.page || page
         } else {
           console.error('获取商品列表失败:', result.message)
         }
