@@ -53,7 +53,8 @@
           <i class="fas fa-comment"></i> <span>{{ post.comments || 0 }}</span>
         </div>
         <div class="interaction-btn" :class="{ active: post.isCollected }" @click.stop="handleCollect">
-          <i class="fas fa-star"></i> <span>{{ post.collections || 0 }}</span>
+          <i class="fas fa-star"></i>
+          <span v-if="!hideCollectionCount">{{ post.collections || 0 }}</span>
         </div>
       </div>
       <div class="interaction-btn"><i class="fas fa-share-alt"></i> 分享</div>
@@ -68,7 +69,8 @@ import { getAvatarUrl, handleAvatarError } from '@/utils/avatar.js'
 import { formatTime } from '@/utils/time.js'
 
 const props = defineProps({ 
-  post: Object 
+  post: Object,
+  hideCollectionCount: Boolean
 })
 
 const emit = defineEmits(['card-click', 'like', 'collect', 'edit', 'delete'])
