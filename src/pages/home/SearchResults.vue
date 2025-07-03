@@ -31,44 +31,78 @@ const defaultImg = '/default-product.png'
 
 async function fetchProducts() {
   if (!keyword.value) return
-  const res = await fetch(`/api/products/search?keyword=${encodeURIComponent(keyword.value)}`)
-  const data = await res.json()
-  let allProducts = []
-  if (Array.isArray(data)) {
-    allProducts = data
-  } else if (data.code === 0 && Array.isArray(data.data)) {
-    allProducts = data.data
-  } else if (data.code === 0 && data.data && Array.isArray(data.data.products)) {
-    allProducts = data.data.products
-  } else {
-    allProducts = []
-  }
-  // 如果是收藏夹搜索，只展示已收藏商品
+  
+  // 如果是收藏夹搜索，直接获取用户的收藏商品并过滤
   if (route.path.startsWith('/favorites/search')) {
-    const userStr = localStorage.getItem('userId')
+    const userStr = localStorage.getItem('user')
     let userId = null
     if (userStr) {
       try {
         const userObj = JSON.parse(userStr)
-        userId = userObj.id || userStr
-      } catch { userId = userStr }
-    }
-    if (userId) {
-      const favRes = await fetch(`/api/favorites?userId=${userId}`)
-      const favData = await favRes.json()
-      let favIds = []
-      if (Array.isArray(favData)) {
-        favIds = favData.map(f => f.product_id || f.id)
-      } else if (favData.code === 0 && Array.isArray(favData.data)) {
-        favIds = favData.data.map(f => f.product_id || f.id)
-      } else if (favData.code === 0 && favData.data && Array.isArray(favData.data.products)) {
-        favIds = favData.data.products.map(f => f.product_id || f.id)
+        userId = userObj.id
+      } catch (e) {
+        console.error('解析用户信息失败:', e)
       }
-      products.value = allProducts.filter(p => favIds.includes(p.id))
+    }
+    
+    if (userId) {
+      try {
+        // 获取用户的所有收藏商品
+        const favRes = await fetch(`/api/favorites?userId=${userId}`)
+        const favData = await favRes.json()
+        
+        let favorites = []
+        if (Array.isArray(favData)) {
+          favorites = favData
+        } else if (favData.code === 0 && Array.isArray(favData.data)) {
+          favorites = favData.data
+        } else {
+          console.error('收藏数据格式错误:', favData)
+          return
+        }
+        
+        // 从收藏商品中筛选出匹配关键词的商品
+        const filteredFavorites = favorites.filter(fav => {
+          const title = fav.title || fav.name || ''
+          const desc = fav.desc || ''
+          const keyword = keyword.value.toLowerCase()
+          return title.toLowerCase().includes(keyword) || 
+                 desc.toLowerCase().includes(keyword)
+        })
+        
+        products.value = filteredFavorites
+        return
+      } catch (error) {
+        console.error('获取收藏商品失败:', error)
+        products.value = []
+        return
+      }
+    } else {
+      // 用户未登录，跳转到登录页
+      router.push('/login')
       return
     }
   }
-  products.value = allProducts
+  
+  // 普通搜索：获取所有匹配的商品
+  try {
+    const res = await fetch(`/api/products/search?keyword=${encodeURIComponent(keyword.value)}`)
+    const data = await res.json()
+    let allProducts = []
+    if (Array.isArray(data)) {
+      allProducts = data
+    } else if (data.code === 0 && Array.isArray(data.data)) {
+      allProducts = data.data
+    } else if (data.code === 0 && data.data && Array.isArray(data.data.products)) {
+      allProducts = data.data.products
+    } else {
+      allProducts = []
+    }
+    products.value = allProducts
+  } catch (error) {
+    console.error('搜索商品失败:', error)
+    products.value = []
+  }
 }
 
 onMounted(fetchProducts)
