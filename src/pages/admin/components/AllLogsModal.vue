@@ -27,7 +27,7 @@
             <td>{{ log.created_at }}</td>
             <td>{{ log.user_id }}</td>
             <td>
-              <span class="action-badge">
+              <span class="action-badge" :class="actionClass(log.action)">
                 {{
                   log.action === 'login' ? '登录'
                   : log.action === 'register' ? '注册'
@@ -70,6 +70,16 @@ function formatIp(ip) {
   if (ip === '::1') return '127.0.0.1';
   if (ip.startsWith('::ffff:')) return ip.replace('::ffff:', '');
   return ip;
+}
+
+function actionClass(action) {
+  switch (action) {
+    case 'login': return 'action-login'
+    case 'register': return 'action-register'
+    case 'logout': return 'action-logout'
+    case 'ban': return 'action-ban'
+    default: return ''
+  }
 }
 
 async function fetchLogs() {
@@ -174,12 +184,43 @@ onMounted(fetchLogs)
 .status-badge.fail { background: #dc3545; }
 .action-badge {
   display: inline-block;
-  padding: 2px 10px;
-  border-radius: 12px;
-  background: #e9ecef;
-  color: #4361ee;
+  padding: 2px 14px;
+  border-radius: 14px;
   font-weight: 600;
   font-size: 0.97em;
+  margin: 0 2px;
+  min-width: 48px;
+  text-align: center;
+  box-shadow: 0 1px 4px rgba(67,97,238,0.06);
+  transition: background 0.2s, color 0.2s;
+}
+
+/* 登录：蓝色 */
+.action-badge.action-login {
+  background: #e3eafe;
+  color: #2563eb;
+  border: 1px solid #b6d0fe;
+}
+
+/* 注册：黄色 */
+.action-badge.action-register {
+  background: #fff7e0;
+  color: #b8860b;
+  border: 1px solid #ffe082;
+}
+
+/* 登出：红色 */
+.action-badge.action-logout {
+  background: #ffeaea;
+  color: #d32f2f;
+  border: 1px solid #ffcdd2;
+}
+
+/* 封禁：紫色/灰色 */
+.action-badge.action-ban {
+  background: #ede7f6;
+  color: #6c63ff;
+  border: 1px solid #b39ddb;
 }
 .ua-cell { max-width: 180px; word-break: break-all; }
 .pagination {
