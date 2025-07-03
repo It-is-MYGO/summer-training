@@ -58,7 +58,7 @@
     <div v-else class="empty-state">
       <i class="fas fa-bookmark"></i>
       <p>暂无收藏动态，快去收藏一些有趣的动态吧！</p>
-      <router-link to="/post/square" class="btn btn-primary">
+      <router-link to="/square" class="btn btn-primary">
         <i class="fas fa-comments"></i> 浏览动态广场
       </router-link>
     </div>

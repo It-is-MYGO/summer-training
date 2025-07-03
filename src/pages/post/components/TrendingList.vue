@@ -36,6 +36,8 @@ import { getAvatarUrl, handleAvatarError } from '@/utils/avatar.js'
 const store = inject('store')
 const trendingPosts = ref([])
 const loading = ref(false)
+const router = useRouter()
+const emit = defineEmits(['open-detail'])
 
 // 获取推荐动态
 async function fetchTrendingPosts() {
@@ -56,8 +58,10 @@ async function fetchTrendingPosts() {
 
 // 点击热门动态
 function handleClick(post) {
-  // 这里可以跳转到动态详情或触发事件
-  console.log('点击热门动态:', post)
+  // 触发 open-detail 事件，由父组件控制详情弹窗
+  if (post && post.id) {
+    emit('open-detail', post)
+  }
 }
 
 onMounted(() => {
