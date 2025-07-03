@@ -44,6 +44,7 @@
         @collect="handleCollect"
         @delete="handleDelete"
         style="cursor:pointer;"
+        :hideCollectionCount="true"
       >
         <template #extra v-if="post.product">
           <div class="product-detail" style="margin-top:8px; color:#888; font-size:0.98rem; background:#f8f8f8; border-radius:8px; padding:8px 12px;">

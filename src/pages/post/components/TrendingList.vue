@@ -14,12 +14,6 @@
         @click="handleClick(item)"
       >
         <div class="trending-header">
-          <img 
-            :src="getAvatarUrl(item.userAvatar)" 
-            class="trending-avatar" 
-            alt="用户头像"
-            @error="handleAvatarError"
-          />
           <span class="trending-username">{{ item.username }}</span>
         </div>
         <div class="trending-content">
