@@ -17,13 +17,23 @@ service.interceptors.request.use(config => {
   return Promise.reject(error);
 });
 
-// 响应拦截器，未登录自动跳转
+// 防止多次跳转登录页
+let isRedirecting = false;
+
+// 响应拦截器，未登录或token过期自动跳转
 service.interceptors.response.use(
   response => response.data,
   error => {
     if (error.response && error.response.status === 401) {
       localStorage.removeItem('token');
-      router.push('/user/login');
+      if (!isRedirecting) {
+        isRedirecting = true;
+        // 可选：弹窗提示
+        alert('登录已过期，请重新登录');
+        router.push('/user/login').finally(() => {
+          isRedirecting = false;
+        });
+      }
     }
     return Promise.reject(error);
   }
