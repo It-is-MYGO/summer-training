@@ -142,7 +142,17 @@ function register() {
       router.push('/login')
     })
     .catch(err => {
-      console.error('注册失败', err)
+      if (err && err.message) {
+        if (err.message.includes('已存在') || err.message.includes('已被注册')) {
+          alert(err.message)
+        } else if (err.message.includes('400')) {
+          alert('用户名或邮箱重复')
+        } else {
+          alert('注册失败：' + err.message)
+        }
+      } else {
+        alert('注册失败，请稍后再试')
+      }
     })
 }
 </script>

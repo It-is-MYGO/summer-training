@@ -20,17 +20,32 @@ service.interceptors.request.use(config => {
 // 防止多次跳转登录页
 let isRedirecting = false;
 
+// 添加日志
+async function logLogout() {
+  try {
+    const user = JSON.parse(localStorage.getItem('user') || '{}');
+    if (user && user.id) {
+      await axios.post('/api/log/user-logs', {
+        userId: user.id,
+        action: 'logout',
+        status: 'success'
+      });
+    }
+  } catch (e) {}
+}
+
 // 响应拦截器，未登录或token过期自动跳转
 service.interceptors.response.use(
   response => response.data,
   error => {
     if (error.response && error.response.status === 401) {
       localStorage.removeItem('token');
+      logLogout();
       if (!isRedirecting) {
         isRedirecting = true;
         // 可选：弹窗提示
         alert('登录已过期，请重新登录');
-        router.push('/user/login').finally(() => {
+        router.push('/login').finally(() => {
           isRedirecting = false;
         });
       }
