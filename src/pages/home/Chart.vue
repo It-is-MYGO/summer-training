@@ -117,9 +117,10 @@
 
 <script setup>
 import { ref, onMounted, watch, computed, nextTick } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 
 const router = useRouter()
+const route = useRoute()
 const productType = ref('') // 'hot' 或 'favorites'
 const availableProducts = ref([])
 const selectedId = ref(null)
@@ -134,11 +135,18 @@ const selectedProduct = computed(() => {
 })
 
 onMounted(async () => {
-  // 等待 Chart.js 加载
   await waitForChart()
-  
-  // 默认选择热门商品
-  selectProductType('hot')
+  // 如果有URL参数，自动加载
+  const id = route.query.id
+  const type = route.query.type
+  if (id && type) {
+    productType.value = type
+    await selectProductType(type)
+    await nextTick()
+    selectProduct(Number(id))
+  } else {
+    selectProductType('hot')
+  }
 })
 
 // 等待 Chart.js 加载
@@ -254,21 +262,20 @@ async function selectProductType(type) {
           console.warn('发现无效收藏记录:', favorite)
           continue
         }
-        
         // 验证商品是否存在
         try {
           const productCheckRes = await fetch(`/api/products/${favorite.productId}`, {
             signal: controller.signal,
             headers: { 'Content-Type': 'application/json' }
           })
-          
           if (productCheckRes.ok) {
             const productData = await productCheckRes.json()
             validFavorites.push({
+              ...productData.data, // 只展开商品的 data 字段
               ...favorite,
-              ...productData // 合并商品信息
+              id: productData.data.id // 明确指定 id 为商品ID
             })
-        } else {
+          } else {
             console.warn('收藏的商品不存在，跳过:', favorite.productId)
           }
         } catch (checkError) {
