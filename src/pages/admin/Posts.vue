@@ -228,7 +228,16 @@ function parseImages(images) {
 function getFullImageUrl(img) {
   if (!img) return ''
   if (img.startsWith('http://') || img.startsWith('https://')) return img
-  return `http://localhost:3000${img}`
+  // 支持全局图片前缀配置，优先window.__IMG_BASE_URL__，否则用环境变量，否则默认空
+  const base = window.__IMG_BASE_URL__ || import.meta.env.VITE_IMG_BASE_URL || ''
+  // 兼容img前面有/或无/
+  if (base.endsWith('/') && img.startsWith('/')) {
+    return base + img.slice(1)
+  } else if (!base.endsWith('/') && !img.startsWith('/')) {
+    return base + '/' + img
+  } else {
+    return base + img
+  }
 }
 
 function getAvatarUrl(post) {

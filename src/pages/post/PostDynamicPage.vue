@@ -157,8 +157,15 @@ function removeImage(index) {
 
 function getFullImageUrl(url) {
   if (!url) return ''
-  if (url.startsWith('http')) return url
-  return 'http://localhost:3000' + url
+  if (url.startsWith('http://') || url.startsWith('https://')) return url
+  const base = window.__IMG_BASE_URL__ || import.meta.env.VITE_IMG_BASE_URL || ''
+  if (base.endsWith('/') && url.startsWith('/')) {
+    return base + url.slice(1)
+  } else if (!base.endsWith('/') && !url.startsWith('/')) {
+    return base + '/' + url
+  } else {
+    return base + url
+  }
 }
 
 async function submitPost() {
