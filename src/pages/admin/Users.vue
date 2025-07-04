@@ -90,6 +90,11 @@
             </tr>
           </tbody>
         </table>
+        <div class="pagination">
+          <button :disabled="page === 1" @click="page--">上一页</button>
+          <span>第 {{ page }} 页 / 共 {{ Math.ceil(total / pageSize) }} 页</span>
+          <button :disabled="page === Math.ceil(total / pageSize)" @click="page++">下一页</button>
+        </div>
       </div>
       
       <!-- 空状态 -->
@@ -124,8 +129,8 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
-import { getAllUsers, updateUser, deleteUser as deleteUserApi } from '../../api/user.js'
+import { ref, onMounted, watch } from 'vue'
+import { getAllUsers, getUsersPaged, updateUser, deleteUser as deleteUserApi } from '../../api/user.js'
 import UserLogsModal from './components/UserLogsModal.vue'
 import AllLogsModal from './components/AllLogsModal.vue'
 
@@ -140,6 +145,9 @@ const currentUserId = ref(null)
 const showLogModal = ref(false)
 const logUser = ref(null)
 const showAllLogsModal = ref(false)
+const page = ref(1)
+const pageSize = 8
+const total = ref(0)
 
 // 头像基础URL
 const AVATAR_BASE_URL = 'http://localhost:3000'
@@ -171,8 +179,9 @@ onMounted(() => {
 async function fetchUsers() {
   loading.value = true
   try {
-    const response = await getAllUsers()
+    const response = await getUsersPaged(page.value, pageSize)
     users.value = response.data || []
+    total.value = response.total || 0
   } catch (error) {
     showMessage('获取用户列表失败', 'error')
     console.error('获取用户列表失败:', error)
@@ -181,8 +190,11 @@ async function fetchUsers() {
   }
 }
 
+watch(page, fetchUsers)
+
 // 刷新用户列表
 function refreshUsers() {
+  page.value = 1
   fetchUsers()
 }
 
@@ -231,7 +243,11 @@ async function deleteUser() {
     await deleteUserApi(userToDelete.value.id)
     showMessage(`用户 ${userToDelete.value.username} 删除成功`, 'success')
     closeDeleteModal()
-    await fetchUsers() // 重新获取用户列表
+    // 删除后如果当前页无数据且不是第一页，自动跳到上一页
+    if (users.value.length === 1 && page.value > 1) {
+      page.value--
+    }
+    await fetchUsers()
   } catch (error) {
     showMessage(`删除用户失败: ${error.message}`, 'error')
   } finally {

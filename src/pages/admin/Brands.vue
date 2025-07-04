@@ -35,15 +35,9 @@
         </tbody>
       </table>
       <div class="pagination">
-        <div 
-          class="page-item" 
-          v-for="p in totalPages" 
-          :key="p" 
-          :class="{active: page === p}"
-          @click="handlePageChange(p)"
-        >
-          {{ p }}
-        </div>
+        <button :disabled="page === 1" @click="page--">上一页</button>
+        <span>第 {{ page }} 页 / 共 {{ totalPages }} 页</span>
+        <button :disabled="page === totalPages" @click="page++">下一页</button>
       </div>
       <!-- 新增/编辑品牌弹窗 -->
       <div v-if="showAddDialog || editingBrand" class="dialog-mask" @click.self="closeDialog">
@@ -62,7 +56,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, watch } from 'vue'
 import axios from 'axios'
 
 const brands = ref([])
@@ -70,16 +64,19 @@ const showAddDialog = ref(false)
 const editingBrand = ref(null)
 const brandForm = ref({ name: '', logo: '' })
 const page = ref(1)
-const pageSize = ref(5)
+const pageSize = ref(10)
+const total = ref(0)
+const totalPages = computed(() => Math.ceil(total.value / pageSize.value))
 const searchKeyword = ref('')
 
 const fetchBrands = async () => {
-  const res = await axios.get('/api/brands', { params: { keyword: searchKeyword.value } })
-  brands.value = res.data.sort ? res.data.sort((a, b) => a.id - b.id) : res.data
-  page.value = 1 // 每次刷新重置到第一页
+  const res = await axios.get('/api/brands/paged', { params: { page: page.value, pageSize: pageSize.value, keyword: searchKeyword.value } })
+  brands.value = res.data.data
+  total.value = Number(res.data.total) || 0
 }
 
 onMounted(fetchBrands)
+watch(page, fetchBrands)
 
 function editBrand(brand) {
   editingBrand.value = brand
@@ -88,13 +85,12 @@ function editBrand(brand) {
 
 async function saveBrand() {
   if (editingBrand.value) {
-    // 编辑
     await axios.put(`/api/brands/${editingBrand.value.id}`, brandForm.value)
   } else {
-    // 新增
     await axios.post('/api/brands', brandForm.value)
   }
   closeDialog()
+  page.value = 1
   fetchBrands()
 }
 
@@ -103,7 +99,9 @@ async function deleteBrand(id) {
   try {
     const res = await axios.delete(`/api/brands/${id}`)
     if (res.data.code === 0) {
-      // 刷新品牌列表
+      if (brands.value.length === 1 && page.value > 1) {
+        page.value--
+      }
       await fetchBrands()
       alert('品牌已删除，相关商品已下架')
     } else {

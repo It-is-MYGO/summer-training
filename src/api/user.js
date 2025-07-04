@@ -33,4 +33,9 @@ export function updateUser(userId, data) {
 // 管理员API - 删除用户
 export function deleteUser(userId) {
   return request.delete(`/users/${userId}`);
+}
+
+// 管理员API - 分页获取用户
+export function getUsersPaged(page = 1, pageSize = 10) {
+  return request.get(`/users/paged?page=${page}&pageSize=${pageSize}`);
 } 
