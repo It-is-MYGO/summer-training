@@ -1,8 +1,15 @@
 <template>
-  <!-- 首页搜索框放到最顶部 -->
-  <div class="home-search-bar">
-    <input v-model="searchKeyword" @keyup.enter="onSearch" placeholder="搜索商品名称或描述..." class="search-input" />
-    <button @click="onSearch" class="search-btn">搜索</button>
+  <!-- 首页搜索栏和锚点导航合并为一行 -->
+  <div class="home-top-bar">
+    <div class="home-search-bar-inline">
+      <input v-model="searchKeyword" @keyup.enter="onSearch" placeholder="搜索商品名称或描述..." class="search-input" />
+      <button @click="onSearch" class="search-btn">搜索</button>
+    </div>
+    <nav class="home-anchor-nav-inline">
+      <button @click="scrollTo('brands')">品牌专区</button>
+      <button @click="scrollTo('hot')">今日热门</button>
+      <button @click="scrollTo('drop')">近期降价</button>
+    </nav>
   </div>
   <section class="page-content">
     <div class="main-container">
@@ -57,13 +64,13 @@
       </div>
 
       <!-- 品牌专栏 -->
-      <h2 class="section-title">
+      <h2 class="section-title" id="brands">
         <i class="fas fa-tags"></i> 品牌专栏
       </h2>
       <div class="brands-grid" v-if="brands.length > 0">
         <div 
           class="brand-card" 
-          v-for="brand in brands" 
+          v-for="brand in pagedBrands" 
           :key="brand.id" 
           @click="goToBrand(brand.id)"
         >
@@ -76,9 +83,21 @@
           </div>
         </div>
       </div>
-      <div class="brands-loading" v-else-if="brandsLoading">
-        <i class="fas fa-spinner fa-spin"></i>
-        <p>加载品牌中...</p>
+      <!-- 品牌专栏分页条 -->
+      <div class="pagination" v-if="totalBrandsPages > 1">
+        <div 
+          class="page-item" 
+          v-for="page in getBrandsPaginationPages" 
+          :key="page" 
+          :class="{active: brandsPage === page, ellipsis: page === '...'}"
+          @click="handleBrandsPageChange(page)"
+        >
+          {{ page }}
+        </div>
+        <div style="display: flex; align-items: center; gap: 6px; margin-left: 16px;">
+          <input v-model.number="brandsPageInput" type="number" min="1" :max="totalBrandsPages" placeholder="页码" style="width: 60px; padding: 4px 8px; border-radius: 6px; border: 1px solid #ccc;" @keyup.enter="jumpToBrandsPage" />
+          <button class="btn btn-outline btn-sm" @click="jumpToBrandsPage">跳转</button>
+        </div>
       </div>
 
       <!-- 推荐商品 -->
@@ -94,7 +113,7 @@
         </div>
       </div>
 
-      <h2 class="section-title">今日热门商品</h2>
+      <h2 class="section-title" id="hot">今日热门商品</h2>
       <div class="products-grid">
         <div class="product-card" v-for="item in hotProducts" :key="item.id" @click="goToProduct(item.id)" style="cursor:pointer;">
           <div class="product-image">
@@ -109,7 +128,7 @@
           </div>
         </div>
       </div>
-      <h2 class="section-title" style="margin-top: 40px;">近期降价商品</h2>
+      <h2 class="section-title" style="margin-top: 40px;" id="drop">近期降价商品</h2>
       <div class="products-grid">
         <div class="product-card" v-for="item in dropProducts" :key="item.id" @click="goToProduct(item.id)" style="cursor:pointer;">
           <div class="product-image">
@@ -129,7 +148,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 
 const router = useRouter()
@@ -140,6 +159,38 @@ const brandsLoading = ref(true)
 const recommendProducts = ref([])
 const defaultImg = '/default-product.png'
 const searchKeyword = ref('')
+const brandsPage = ref(1)
+const brandsPageSize = 12
+const brandsPageInput = ref('')
+
+const totalBrandsPages = computed(() => Math.ceil(brands.value.length / brandsPageSize) || 1)
+const pagedBrands = computed(() => {
+  const start = (brandsPage.value - 1) * brandsPageSize
+  return brands.value.slice(start, start + brandsPageSize)
+})
+const getBrandsPaginationPages = computed(() => {
+  const pages = []
+  const total = totalBrandsPages.value
+  const current = brandsPage.value
+  if (total <= 7) {
+    for (let i = 1; i <= total; i++) pages.push(i)
+  } else if (current <= 4) {
+    for (let i = 1; i <= 5; i++) pages.push(i)
+    pages.push('...')
+    pages.push(total)
+  } else if (current >= total - 3) {
+    pages.push(1)
+    pages.push('...')
+    for (let i = total - 4; i <= total; i++) pages.push(i)
+  } else {
+    pages.push(1)
+    pages.push('...')
+    for (let i = current; i <= current + 4; i++) pages.push(i)
+    pages.push('...')
+    pages.push(total)
+  }
+  return pages
+})
 
 onMounted(async () => {
   // 品牌列表
@@ -218,6 +269,30 @@ function goToAllProducts() {
 function onSearch() {
   if (!searchKeyword.value.trim()) return
   router.push(`/search?keyword=${encodeURIComponent(searchKeyword.value.trim())}`)
+}
+
+function scrollTo(id) {
+  const el = document.getElementById(id)
+  if (el) {
+    el.scrollIntoView({ behavior: 'smooth' })
+  }
+}
+
+function handleBrandsPageChange(page) {
+  if (page === '...') return
+  if (page !== brandsPage.value && page > 0 && page <= totalBrandsPages.value) {
+    brandsPage.value = page
+  }
+}
+
+function jumpToBrandsPage() {
+  const page = Number(brandsPageInput.value)
+  if (page && page > 0 && page <= totalBrandsPages.value) {
+    brandsPage.value = page
+    brandsPageInput.value = ''
+  } else {
+    alert('请输入有效的页码（1-' + totalBrandsPages.value + '）')
+  }
 }
 </script>
 
@@ -483,37 +558,80 @@ function onSearch() {
   background: var(--secondary);
 }
 
-.home-search-bar {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  margin: 0 0 30px 0;
-  padding-top: 30px;
-  background: #fff;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.03);
+.home-top-bar {
   position: sticky;
   top: 0;
-  z-index: 10;
+  z-index: 102;
+  background: #fff;
+  box-shadow: 0 2px 8px rgba(80,120,255,0.03);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 32px;
+  padding: 18px 0 12px 0;
 }
-.search-input {
-  width: 320px;
-  padding: 10px 16px;
-  border: 1px solid var(--light-gray);
-  border-radius: 8px 0 0 8px;
-  font-size: 1rem;
-  outline: none;
+.home-search-bar-inline {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  border: 2px solid var(--primary);
+  border-radius: 10px;
+  background: #fff;
+  padding: 4px 8px;
 }
-.search-btn {
-  padding: 10px 24px;
-  border: none;
+.home-anchor-nav-inline {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+.home-anchor-nav-inline button {
   background: var(--primary);
   color: #fff;
-  border-radius: 0 8px 8px 0;
-  font-size: 1rem;
+  border: none;
+  border-radius: 8px;
+  padding: 10px 22px;
+  font-size: 1.05rem;
+  font-weight: bold;
   cursor: pointer;
+  box-shadow: 0 2px 8px rgba(80,120,255,0.08);
   transition: background 0.2s;
 }
-.search-btn:hover {
+.home-anchor-nav-inline button:hover {
   background: var(--secondary);
+}
+
+.pagination {
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  align-items: center;
+  gap: 12px;
+  margin-top: 24px;
+  flex-wrap: wrap;
+}
+.page-item {
+  padding: 8px 14px;
+  border-radius: 6px;
+  background: #fff;
+  border: 1px solid var(--light-gray);
+  color: var(--primary);
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s, border 0.2s;
+  margin: 0 2px;
+  user-select: none;
+}
+.page-item.active {
+  background: var(--primary);
+  color: #fff;
+  border-color: var(--primary);
+}
+.page-item.ellipsis {
+  cursor: default;
+  color: #bbb;
+  background: none;
+  box-shadow: none;
+  pointer-events: none;
+  border: none;
 }
 </style>

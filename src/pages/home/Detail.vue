@@ -363,8 +363,10 @@ onMounted(async () => {
       throw new Error(`获取商品详情失败: ${res.status} ${res.statusText}`)
     }
     
-    product.value = await res.json()
-    console.log('商品详情获取成功:', product.value)
+    const response = await res.json()
+    product.value = response.data
+    console.log('商品详情数据:', product.value)
+    console.log('图片链接:', product.value?.img, product.value?.image)
 
     // 平台比价
     console.log('正在获取平台价格...')

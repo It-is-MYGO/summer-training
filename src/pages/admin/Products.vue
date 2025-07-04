@@ -150,12 +150,16 @@
       <div class="pagination">
         <div 
           class="page-item" 
-          v-for="page in totalPages" 
+          v-for="page in getPaginationPages" 
           :key="page" 
-          :class="{active: currentPage === page}"
+          :class="{active: currentPage === page, ellipsis: page === '...'}"
           @click="handlePageChange(page)"
         >
           {{ page }}
+        </div>
+        <div style="display: flex; align-items: center; gap: 6px; margin-left: 16px;">
+          <input v-model.number="pageInput" type="number" min="1" :max="totalPages" placeholder="页码" style="width: 60px; padding: 4px 8px; border-radius: 6px; border: 1px solid #ccc;" @keyup.enter="jumpToPage" />
+          <button class="btn btn-outline btn-sm" @click="jumpToPage">跳转</button>
         </div>
       </div>
     </div>
@@ -202,16 +206,39 @@ export default {
         id: '', title: '', desc: '', img: '', category: '', brand_id: '', is_hot: 0, is_drop: 0, platform: '', price: ''
       },
       brands: [],
+      pageInput: '',
     }
   },
   computed: {
     pagedProducts() {
-      // 分页逻辑
-      const start = (this.currentPage - 1) * this.pageSize
-      return this.products.slice(start, start + this.pageSize)
+      // 直接返回当前页数据
+      return this.products
     },
     totalPages() {
       return Math.ceil(this.total / this.pageSize) || 1
+    },
+    getPaginationPages() {
+      const pages = []
+      const total = this.totalPages
+      const current = this.currentPage
+      if (total <= 7) {
+        for (let i = 1; i <= total; i++) pages.push(i)
+      } else if (current <= 4) {
+        for (let i = 1; i <= 5; i++) pages.push(i)
+        pages.push('...')
+        pages.push(total)
+      } else if (current >= total - 3) {
+        pages.push(1)
+        pages.push('...')
+        for (let i = total - 4; i <= total; i++) pages.push(i)
+      } else {
+        pages.push(1)
+        pages.push('...')
+        for (let i = current; i <= current + 4; i++) pages.push(i)
+        pages.push('...')
+        pages.push(total)
+      }
+      return pages
     }
   },
   async mounted() {
@@ -263,7 +290,7 @@ export default {
             }
           }))
           this.total = result.data.total || 0
-          this.currentPage = result.data.page || page
+          this.currentPage = page
         } else {
           console.error('获取商品列表失败:', result.message)
         }
@@ -371,6 +398,7 @@ export default {
       }
     },
     handlePageChange(page) {
+      if (page === '...') return
       if (page !== this.currentPage && page > 0 && page <= this.totalPages) {
         this.loadProducts(page)
       }
@@ -435,6 +463,15 @@ export default {
         }
       } catch (error) {
         alert('编辑失败: ' + error)
+      }
+    },
+    jumpToPage() {
+      const page = Number(this.pageInput)
+      if (page && page > 0 && page <= this.totalPages) {
+        this.loadProducts(page)
+        this.pageInput = ''
+      } else {
+        alert('请输入有效的页码（1-' + this.totalPages + '）')
       }
     },
   }
@@ -769,5 +806,13 @@ export default {
   .pagination {
     gap: 6px;
   }
+}
+
+.page-item.ellipsis {
+  cursor: default;
+  color: #bbb;
+  background: none;
+  box-shadow: none;
+  pointer-events: none;
 }
 </style>
