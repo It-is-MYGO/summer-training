@@ -102,33 +102,69 @@ export default {
 
       // 商品类别分布图
       const productCategoryChart = echarts.init(this.$refs.productCategoryChart)
+      // 动态获取分类分布数据
+      let categoryData = {
+        categories: ['手机数码', '服装鞋帽', '运动户外', '家居生活', '食品饮料', '母婴用品', '美妆护肤', '图书音像', '汽车用品', '医药保健', '未分类'],
+        counts: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+      }
+      
+      try {
+        const res = await axios.get('/api/products/category-distribution')
+        if (res.data && res.data.code === 0 && res.data.data) {
+          const data = res.data.data
+          categoryData.categories = data.map(item => item.category)
+          categoryData.counts = data.map(item => item.count)
+        }
+      } catch (e) {
+        console.error('获取分类分布数据失败:', e)
+      }
+      
       productCategoryChart.setOption({
         tooltip: {
           trigger: 'axis',
-          axisPointer: { type: 'shadow' }
+          axisPointer: { type: 'shadow' },
+          formatter: function(params) {
+            const data = params[0]
+            return `${data.name}<br/>商品数量: ${data.value} 件`
+          }
         },
         grid: {
           left: '3%',
           right: '4%',
-          bottom: '3%',
+          bottom: '15%',
           containLabel: true
         },
         xAxis: {
           type: 'category',
-          data: ['手机', '电脑', '平板', '耳机', '手表', '相机', '家电'],
-          axisTick: { alignWithLabel: true }
+          data: categoryData.categories,
+          axisTick: { alignWithLabel: true },
+          axisLabel: {
+            rotate: 45,
+            fontSize: 12
+          }
         },
-        yAxis: { type: 'value', name: '商品数量' },
+        yAxis: { 
+          type: 'value', 
+          name: '商品数量',
+          nameTextStyle: {
+            fontSize: 12
+          }
+        },
         series: [{
           name: '商品数量',
           type: 'bar',
           barWidth: '60%',
-          data: [1250, 890, 670, 540, 480, 320, 210],
+          data: categoryData.counts,
           itemStyle: {
             color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
               { offset: 0, color: '#4361ee' },
               { offset: 1, color: '#4cc9f0' }
             ])
+          },
+          label: {
+            show: true,
+            position: 'top',
+            fontSize: 11
           }
         }]
       })
