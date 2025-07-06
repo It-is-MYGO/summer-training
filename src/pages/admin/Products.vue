@@ -8,6 +8,28 @@
         </div>
       </div>
       
+      <!-- 分类筛选 -->
+      <div class="filter-section">
+        <div class="filter-group">
+          <label>分类筛选:</label>
+          <select v-model="selectedCategory" @change="filterByCategory" class="filter-select">
+            <option value="">全部分类</option>
+            <option v-for="category in categories" :key="category" :value="category">{{ category }}</option>
+          </select>
+        </div>
+        <div class="filter-group">
+          <label>状态筛选:</label>
+          <select v-model="selectedStatus" @change="filterByStatus" class="filter-select">
+            <option value="">全部状态</option>
+            <option value="1">已上架</option>
+            <option value="0">已下架</option>
+          </select>
+        </div>
+        <div class="filter-group">
+          <button class="btn btn-outline" @click="clearFilters">清除筛选</button>
+        </div>
+      </div>
+      
       <!-- 添加商品弹窗 -->
       <div v-if="showAddDialog" class="dialog-mask" @click.self="showAddDialog = false">
         <div class="dialog">
@@ -53,7 +75,10 @@
             <div class="form-row form-row-inline">
               <div class="form-group">
               <label>分类</label>
-              <input v-model="editForm.category" />
+              <select v-model="editForm.category" class="form-select">
+                <option value="">请选择分类</option>
+                <option v-for="category in categories" :key="category" :value="category">{{ category }}</option>
+              </select>
             </div>
               <div class="form-group">
               <label>品牌</label>
@@ -108,6 +133,7 @@
           <tr>
             <th>ID</th>
             <th>商品名称</th>
+            <th>分类</th>
             <th>平台及当前价格</th>
             <th>收藏次数</th>
             <th>状态</th>
@@ -115,9 +141,12 @@
           </tr>
         </thead>
         <tbody>
-          <tr v-for="product in pagedProducts" :key="product.id">
+          <tr v-for="product in products" :key="product.id">
             <td>{{ product.id }}</td>
             <td>{{ product.name }}</td>
+            <td>
+              <span class="category-badge">{{ product.category }}</span>
+            </td>
             <td>
               <div style="display: flex; flex-wrap: wrap; gap: 6px; align-items: center;">
                 <span v-for="p in product.platformPrices" :key="p.platform" class="platform-badge" :style="{ background: platformColors[p.platform] || '#eee', color: '#fff' }">
@@ -207,13 +236,12 @@ export default {
       },
       brands: [],
       pageInput: '',
+      selectedCategory: '',
+      selectedStatus: '',
+      categories: [], // 存储所有可用的分类
     }
   },
   computed: {
-    pagedProducts() {
-      // 直接返回当前页数据
-      return this.products
-    },
     totalPages() {
       return Math.ceil(this.total / this.pageSize) || 1
     },
@@ -242,7 +270,8 @@ export default {
     }
   },
   async mounted() {
-    await this.loadProducts(this.currentPage)
+    await this.loadProducts()
+    await this.loadCategories()
     const res = await fetch('/api/products/brands')
     this.brands = (await res.json()).data
   },
@@ -250,7 +279,22 @@ export default {
     async loadProducts(page = 1) {
       this.loading = true
       try {
-        const response = await fetch(`/api/products?page=${page}&pageSize=${this.pageSize}&includeOffline=true`, {
+        // 构建查询参数
+        const params = new URLSearchParams({
+          page: page.toString(),
+          pageSize: this.pageSize.toString(),
+          includeOffline: 'true'
+        })
+        
+        // 添加筛选条件
+        if (this.selectedCategory) {
+          params.append('category', this.selectedCategory)
+        }
+        if (this.selectedStatus !== '') {
+          params.append('status', this.selectedStatus)
+        }
+        
+        const response = await fetch(`/api/products?${params.toString()}`, {
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('token')}`
           }
@@ -284,9 +328,10 @@ export default {
             return {
               id: product.id,
               name: product.title,
+              category: product.category || '未分类',
               platformPrices,
               favoriteCount: product.favorite_count || 0,
-              status: product.status || 'active'
+              status: product.status || 1
             }
           }))
           this.total = result.data.total || 0
@@ -298,6 +343,22 @@ export default {
         console.error('获取商品列表失败:', error)
       } finally {
         this.loading = false
+      }
+    },
+    
+    async loadCategories() {
+      try {
+        const response = await fetch('/api/products/category-distribution', {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          }
+        })
+        const result = await response.json()
+        if (result.code === 0) {
+          this.categories = result.data.map(item => item.category)
+        }
+      } catch (error) {
+        console.error('获取分类列表失败:', error)
       }
     },
     mapPlatform(platformStr) {
@@ -328,7 +389,7 @@ export default {
         const result = await response.json()
         if (result.code === 0) {
           alert(`商品${action}成功！`)
-          this.loadProducts(this.currentPage)
+          this.loadProducts()
         } else {
           alert(`${action}失败: ` + result.message)
         }
@@ -347,7 +408,7 @@ export default {
         })
         const result = await response.json()
         if (result.code === 0) {
-          this.loadProducts(this.currentPage)
+          this.loadProducts()
         } else {
           alert('删除失败: ' + result.message)
         }
@@ -400,7 +461,7 @@ export default {
     handlePageChange(page) {
       if (page === '...') return
       if (page !== this.currentPage && page > 0 && page <= this.totalPages) {
-        this.loadProducts(page)
+        this.currentPage = page
       }
     },
     async submitAddProduct() {
@@ -417,7 +478,7 @@ export default {
         if (result.code === 0) {
           this.showAddDialog = false
           this.addForm = { title: '', desc: '', img: '' }
-          this.loadProducts(1)
+          this.loadProducts()
         } else {
           alert('添加失败: ' + result.message)
         }
@@ -457,7 +518,7 @@ export default {
             })
           }
           this.showEditDialog = false
-          this.loadProducts(this.currentPage)
+          this.loadProducts()
         } else {
           alert('编辑失败: ' + result.message)
         }
@@ -465,14 +526,37 @@ export default {
         alert('编辑失败: ' + error)
       }
     },
-    jumpToPage() {
+    async handlePageChange(page) {
+      if (page === '...' || page === this.currentPage) return
+      await this.loadProducts(page)
+    },
+    
+    async jumpToPage() {
       const page = Number(this.pageInput)
       if (page && page > 0 && page <= this.totalPages) {
-        this.loadProducts(page)
+        await this.loadProducts(page)
         this.pageInput = ''
       } else {
         alert('请输入有效的页码（1-' + this.totalPages + '）')
       }
+    },
+    
+    // 筛选方法
+    async filterByCategory() {
+      this.currentPage = 1; // 重置到第一页
+      await this.loadProducts(1);
+    },
+    
+    async filterByStatus() {
+      this.currentPage = 1; // 重置到第一页
+      await this.loadProducts(1);
+    },
+    
+    async clearFilters() {
+      this.selectedCategory = '';
+      this.selectedStatus = '';
+      this.currentPage = 1;
+      await this.loadProducts(1);
     },
   }
 }
@@ -542,6 +626,46 @@ export default {
  gap: 10px;
 }
 
+.filter-section {
+ display: flex;
+ gap: 20px;
+ align-items: center;
+ margin-bottom: 20px;
+ padding: 15px;
+ background: #f8fafd;
+ border-radius: 12px;
+ border: 1px solid #e9ecef;
+}
+
+.filter-group {
+ display: flex;
+ align-items: center;
+ gap: 8px;
+}
+
+.filter-group label {
+ font-size: 0.95rem;
+ font-weight: 600;
+ color: #4a5568;
+ margin: 0;
+}
+
+.filter-select {
+ padding: 8px 12px;
+ border: 1px solid #e2e8f0;
+ border-radius: 8px;
+ font-size: 0.95rem;
+ background: white;
+ outline: none;
+ transition: border-color 0.2s;
+ min-width: 120px;
+}
+
+.filter-select:focus {
+ border-color: #4f8cff;
+ box-shadow: 0 0 0 3px rgba(79, 140, 255, 0.1);
+}
+
 .search-box {
  display: flex;
  align-items: center;
@@ -604,15 +728,24 @@ export default {
   font-size: 1.05rem;
 }
 .admin-table th:nth-child(2),
-.admin-table td:nth-child(2),
+.admin-table td:nth-child(2) {
+  max-width: 200px;
+  word-break: break-all;
+  white-space: normal;
+}
 .admin-table th:nth-child(3),
 .admin-table td:nth-child(3) {
+  width: 100px;
+  text-align: center;
+}
+.admin-table th:nth-child(4),
+.admin-table td:nth-child(4) {
   max-width: 260px;
   word-break: break-all;
   white-space: normal;
 }
-.admin-table th:nth-child(6),
-.admin-table td:nth-child(6) {
+.admin-table th:nth-child(7),
+.admin-table td:nth-child(7) {
   width: 140px;
   min-width: 110px;
   text-align: center;
@@ -738,6 +871,22 @@ export default {
   border-radius: 5px;
   font-size: 1rem;
   outline: none;
+}
+
+.form-select {
+  padding: 8px 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  background: white;
+  outline: none;
+  transition: border-color 0.2s;
+  width: 100%;
+}
+
+.form-select:focus {
+  border-color: #4f8cff;
+  box-shadow: 0 0 0 3px rgba(79, 140, 255, 0.1);
 }
 .form-row textarea {
  min-height: 60px;
