@@ -9,7 +9,6 @@ export {}
 declare module 'vue' {
   export interface GlobalComponents {
     AIChatWidget: typeof import('./components/AIChatWidget.vue')['default']
-    AIChatZone: typeof import('./components/AIChatZone.vue')['default']
     HelloWorld: typeof import('./components/HelloWorld.vue')['default']
     Navbar: typeof import('./components/Navbar.vue')['default']
     PDFExporter: typeof import('./components/PDFExporter.vue')['default']
