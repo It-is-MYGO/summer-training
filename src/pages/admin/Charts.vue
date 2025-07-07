@@ -28,11 +28,17 @@
           <div class="chart-controls">
             <select v-model="selectedCategory" @change="updatePriceTrendChart" class="category-select">
               <option value="">所有类别</option>
-              <option value="手机">手机</option>
-              <option value="电脑">电脑</option>
-              <option value="平板">平板</option>
-              <option value="耳机">耳机</option>
-              <option value="手表">手表</option>
+              <option value="手机数码">手机数码</option>
+              <option value="服装鞋帽">服装鞋帽</option>
+              <option value="运动户外">运动户外</option>
+              <option value="家居生活">家居生活</option>
+              <option value="食品饮料">食品饮料</option>
+              <option value="母婴用品">母婴用品</option>
+              <option value="美妆护肤">美妆护肤</option>
+              <option value="图书音像">图书音像</option>
+              <option value="汽车用品">汽车用品</option>
+              <option value="医药保健">医药保健</option>
+              <option value="未分类">未分类</option>
             </select>
             <select v-model="timeRange" @change="updatePriceTrendChart" class="time-select">
               <option value="7">最近7天</option>
@@ -519,7 +525,10 @@ export default {
           }
         },
         series: series,
-        color: ['#4361ee', '#f72585', '#4cc9f0', '#7209b7', '#3a0ca3']
+        color: [
+          '#4361ee', '#f72585', '#4cc9f0', '#7209b7', '#3a0ca3',
+          '#ffbe0b', '#fb5607', '#ff006e', '#8338ec', '#3a86ff'
+        ]
       })
     },
 
@@ -677,15 +686,42 @@ export default {
           }
         },
         series: [],
-        color: ['#4361ee', '#f72585', '#4cc9f0', '#7209b7', '#3a0ca3']
+        color: [
+          '#4361ee', '#f72585', '#4cc9f0', '#7209b7', '#3a0ca3',
+          '#ffbe0b', '#fb5607', '#ff006e', '#8338ec', '#3a86ff'
+        ]
       })
 
       // 平台商品数量对比图
       const platformComparisonChart = echarts.init(this.$refs.platformComparisonChart)
+      let platformData = { categories: [], jd: [], tmall: [], pdd: [], suning: [] }
+      try {
+        const token = localStorage.getItem('token')
+        const res = await axios.get('/api/admin/platform-comparison', {
+          headers: { Authorization: `Bearer ${token}` }
+        })
+        if (res.data && res.data.success && res.data.data) {
+          const data = res.data.data
+          platformData.categories = data.map(item => item.category)
+          platformData.jd = data.map(item => item['京东'] || 0)
+          platformData.tmall = data.map(item => item['天猫'] || 0)
+          platformData.pdd = data.map(item => item['拼多多'] || 0)
+          platformData.suning = data.map(item => item['苏宁'] || 0)
+        }
+      } catch (e) {
+        console.error('获取平台商品数量对比数据失败:', e)
+      }
       platformComparisonChart.setOption({
         tooltip: {
           trigger: 'axis',
-          axisPointer: { type: 'shadow' }
+          axisPointer: { type: 'shadow' },
+          formatter: function(params) {
+            let html = params[0].name + '<br/>';
+            params.forEach(item => {
+              html += `${item.marker}${item.seriesName}: ${item.value} 件<br/>`
+            })
+            return html
+          }
         },
         legend: {
           data: ['京东', '天猫', '拼多多', '苏宁']
@@ -693,21 +729,53 @@ export default {
         grid: {
           left: '3%',
           right: '4%',
-          bottom: '3%',
+          bottom: '15%',
           containLabel: true
         },
         xAxis: [{
           type: 'category',
-          data: ['手机', '电脑', '平板', '耳机', '手表']
+          data: platformData.categories,
+          axisTick: { alignWithLabel: true },
+          axisLabel: {
+            rotate: 45,
+            fontSize: 12
+          }
         }],
-        yAxis: [{ type: 'value' }],
+        yAxis: [{ type: 'value', name: '商品数量', nameTextStyle: { fontSize: 12 } }],
         series: [
-          { name: '京东', type: 'bar', stack: 'Ad', data: [320, 302, 301, 334, 190] },
-          { name: '天猫', type: 'bar', stack: 'Ad', data: [220, 182, 191, 234, 290] },
-          { name: '拼多多', type: 'bar', stack: 'Ad', data: [150, 212, 201, 154, 190] },
-          { name: '苏宁', type: 'bar', stack: 'Ad', data: [98, 77, 101, 99, 60] }
-        ],
-        color: ['#e74c3c', '#f39c12', '#2ecc71', '#9b59b6']
+          {
+            name: '京东',
+            type: 'bar',
+            stack: false,
+            data: platformData.jd,
+            itemStyle: { color: '#e74c3c' },
+            label: { show: true, position: 'top', fontSize: 11 }
+          },
+          {
+            name: '天猫',
+            type: 'bar',
+            stack: false,
+            data: platformData.tmall,
+            itemStyle: { color: '#f39c12' },
+            label: { show: true, position: 'top', fontSize: 11 }
+          },
+          {
+            name: '拼多多',
+            type: 'bar',
+            stack: false,
+            data: platformData.pdd,
+            itemStyle: { color: '#2ecc71' },
+            label: { show: true, position: 'top', fontSize: 11 }
+          },
+          {
+            name: '苏宁',
+            type: 'bar',
+            stack: false,
+            data: platformData.suning,
+            itemStyle: { color: '#9b59b6' },
+            label: { show: true, position: 'top', fontSize: 11 }
+          }
+        ]
       })
 
       this.charts = [userActivityChart, productCategoryChart, priceTrendChart, platformComparisonChart]
