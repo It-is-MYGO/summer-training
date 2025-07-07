@@ -84,6 +84,92 @@
           </div>
         </div>
 
+        <!-- 价格预测区域 -->
+        <div class="prediction-section">
+          <div class="prediction-header">
+            <h3><i class="fas fa-crystal-ball"></i> 价格预测分析</h3>
+            <div class="prediction-controls">
+              <button class="btn btn-outline" @click="loadPrediction">
+                <i class="fas fa-magic"></i> 生成预测
+              </button>
+              <button class="btn btn-outline" @click="togglePredictionDetails">
+                <i class="fas fa-info-circle"></i> {{ showPredictionDetails ? '隐藏详情' : '显示详情' }}
+              </button>
+            </div>
+          </div>
+          
+          <div v-if="predictionData" class="prediction-content">
+            <!-- 综合预测结果 -->
+            <div class="main-prediction">
+              <div class="prediction-card">
+                <div class="prediction-method">{{ predictionData.method }}</div>
+                <div class="prediction-price">
+                  <span class="price-label">预测价格</span>
+                  <span class="price-value">¥{{ predictionData.predictedPrice }}</span>
+                </div>
+                <div class="prediction-trend">
+                  <i :class="['trend-icon', getTrendIcon(predictionData.trend)]"></i>
+                  <span :class="['trend-text', getTrendClass(predictionData.trend)]">
+                    {{ predictionData.trend }}
+                  </span>
+                </div>
+                <div class="prediction-confidence">
+                  <span class="confidence-label">置信度</span>
+                  <span :class="['confidence-value', getConfidenceClass(predictionData.confidence)]">
+                    {{ predictionData.confidence }}
+                  </span>
+                </div>
+                <div v-if="predictionData.consistency" class="prediction-consistency">
+                  <span class="consistency-label">一致性</span>
+                  <span class="consistency-value">{{ (predictionData.consistency * 100).toFixed(1) }}%</span>
+                </div>
+                <div v-if="predictionData.note" class="prediction-note">
+                  <span class="note-text">{{ predictionData.note }}</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- 详细预测算法结果 -->
+            <div v-if="showPredictionDetails && detailedPredictionData" class="detailed-predictions">
+              <h4>各算法预测结果</h4>
+              <div class="algorithm-grid">
+                <div 
+                  v-for="(prediction, method) in detailedPredictionData" 
+                  :key="method"
+                  class="algorithm-card"
+                  v-show="!prediction.error"
+                >
+                  <div class="algorithm-name">{{ getAlgorithmName(method) }}</div>
+                  <div class="algorithm-price">¥{{ prediction.predictedPrice }}</div>
+                  <div class="algorithm-trend">
+                    <i :class="['trend-icon', getTrendIcon(prediction.trend)]"></i>
+                    {{ prediction.trend }}
+                  </div>
+                  <div class="algorithm-confidence">
+                    置信度: <span :class="getConfidenceClass(prediction.confidence)">{{ prediction.confidence }}</span>
+                  </div>
+                  <div v-if="prediction.rSquared" class="algorithm-r2">
+                    R²: {{ prediction.rSquared }}
+                  </div>
+                  <div v-if="prediction.note" class="algorithm-note">
+                    {{ prediction.note }}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div v-else-if="predictionLoading" class="prediction-loading">
+            <i class="fas fa-spinner fa-spin"></i>
+            <span>正在分析价格趋势...</span>
+          </div>
+
+          <div v-else class="prediction-placeholder">
+            <i class="fas fa-chart-line"></i>
+            <p>点击"生成预测"开始分析价格趋势</p>
+          </div>
+        </div>
+
         <!-- 横向排版的图表 -->
         <div class="charts-grid">
           <div class="chart-container">
@@ -117,15 +203,20 @@
 
 <script setup>
 import { ref, onMounted, watch, computed, nextTick } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 
 const router = useRouter()
+const route = useRoute()
 const productType = ref('') // 'hot' 或 'favorites'
 const availableProducts = ref([])
 const selectedId = ref(null)
 const comparisonData = ref({})
 const monthlyData = ref([])
 const defaultImg = '/default-product.png'
+const predictionData = ref(null)
+const detailedPredictionData = ref(null)
+const predictionLoading = ref(false)
+const showPredictionDetails = ref(false)
 let comparisonChart = null
 let fluctuationChart = null
 
@@ -134,11 +225,18 @@ const selectedProduct = computed(() => {
 })
 
 onMounted(async () => {
-  // 等待 Chart.js 加载
   await waitForChart()
-  
-  // 默认选择热门商品
-  selectProductType('hot')
+  // 如果有URL参数，自动加载
+  const id = route.query.id
+  const type = route.query.type
+  if (id && type) {
+    productType.value = type
+    await selectProductType(type)
+    await nextTick()
+    selectProduct(Number(id))
+  } else {
+    selectProductType('hot')
+  }
 })
 
 // 等待 Chart.js 加载
@@ -254,19 +352,18 @@ async function selectProductType(type) {
           console.warn('发现无效收藏记录:', favorite)
           continue
         }
-        
         // 验证商品是否存在
         try {
           const productCheckRes = await fetch(`/api/products/${favorite.productId}`, {
             signal: controller.signal,
             headers: { 'Content-Type': 'application/json' }
           })
-          
           if (productCheckRes.ok) {
             const productData = await productCheckRes.json()
             validFavorites.push({
+              ...productData.data, // 只展开商品的 data 字段
               ...favorite,
-              ...productData // 合并商品信息
+              id: productData.data.id // 明确指定 id 为商品ID
             })
           } else {
             console.warn('收藏的商品不存在，跳过:', favorite.productId)
@@ -328,6 +425,9 @@ function selectProduct(id) {
   }
   
   selectedId.value = id
+  // 切换商品时清空预测数据
+  predictionData.value = null
+  detailedPredictionData.value = null
   console.log('选中的商品数据:', product)
   console.log('商品价格字段:', {
     price: product?.price,
@@ -625,25 +725,26 @@ function renderCharts() {
   
   // 多平台价格对比折线图
   const comparisonCtx = comparisonCanvas.getContext('2d')
+  
+  // 生成所有平台数据的日期标签（去重并排序）
+  const allDates = new Set()
+  Object.values(comparisonData.value).forEach(platformData => {
+    platformData.forEach(item => {
+      allDates.add(item.date)
+    })
+  })
+  const sortedDates = Array.from(allDates).sort((a, b) => new Date(a) - new Date(b))
+  
   comparisonChart = new window.Chart(comparisonCtx, {
     type: 'line',
     data: {
-      labels: (comparisonData.value['京东'] || []).map(item => {
-        // 格式化日期，去除时间戳后缀
-        const date = item.date
-        if (date && typeof date === 'string') {
-          // 如果是ISO格式的日期字符串，只取日期部分
-          if (date.includes('T')) {
-            return date.split('T')[0]
-          }
-          // 如果是其他格式，直接返回
-          return date
-        }
-        return date
-      }),
+      labels: sortedDates.map(date => formatDateLabel(date)),
       datasets: Object.keys(comparisonData.value).map(platform => ({
         label: platform,
-        data: comparisonData.value[platform].map(item => item.price),
+        data: sortedDates.map(date => {
+          const platformItem = comparisonData.value[platform].find(item => item.date === date)
+          return platformItem ? platformItem.price : null
+        }),
         borderColor: platformColors[platform] || '#4361ee',
         backgroundColor: platformColors[platform] ? `${platformColors[platform]}20` : 'rgba(67, 97, 238, 0.1)',
         borderWidth: 3,
@@ -676,7 +777,12 @@ function renderCharts() {
           grid: { display: false },
           ticks: { 
             color: '#333',
-            padding: 8
+            padding: 8,
+            maxTicksLimit: 8,
+            callback: function(value, index, values) {
+              const label = this.getLabelForValue(value)
+              return formatDateLabel(label)
+            }
           }
         }
       }
@@ -688,7 +794,7 @@ function renderCharts() {
   fluctuationChart = new window.Chart(fluctuationCtx, {
     type: 'bar',
     data: {
-      labels: monthlyData.value.map(item => item.month),
+      labels: monthlyData.value.map(item => formatMonthLabel(item.month)),
       datasets: [{
         label: '平均价格 (元)',
         data: monthlyData.value.map(item => item.avgPrice),
@@ -717,12 +823,141 @@ function renderCharts() {
           grid: { display: false },
           ticks: { 
             color: '#333',
-            padding: 8
+            padding: 8,
+            callback: function(value, index, values) {
+              const label = this.getLabelForValue(value)
+              return formatMonthLabel(label)
+            }
           }
         }
       }
     }
   })
+}
+
+function formatDateLabel(dateStr) {
+  if (!dateStr) return ''
+  try {
+    const date = new Date(dateStr)
+    if (isNaN(date.getTime())) {
+      // 如果日期无效，尝试其他格式
+      const parts = dateStr.split('-')
+      if (parts.length >= 3) {
+        return `${parts[0]}-${parts[1]}-${parts[2]}`
+      }
+      return dateStr
+    }
+    return date.toLocaleDateString('zh-CN', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    })
+  } catch (error) {
+    console.warn('日期格式化失败:', dateStr, error)
+    return dateStr
+  }
+}
+
+function formatMonthLabel(monthStr) {
+  if (!monthStr) return ''
+  try {
+    const date = new Date(monthStr)
+    if (isNaN(date.getTime())) {
+      // 如果日期无效，尝试其他格式
+      const parts = monthStr.split('-')
+      if (parts.length >= 2) {
+        return `${parts[0]}-${parts[1]}`
+      }
+      return monthStr
+    }
+    return date.toLocaleDateString('zh-CN', { 
+      year: 'numeric',
+      month: '2-digit'
+    })
+  } catch (error) {
+    console.warn('月份格式化失败:', monthStr, error)
+    return monthStr
+  }
+}
+
+// 价格预测相关方法
+async function loadPrediction() {
+  if (!selectedId.value) {
+    alert('请先选择一个商品')
+    return
+  }
+
+  predictionLoading.value = true
+  predictionData.value = null
+  detailedPredictionData.value = null
+
+  try {
+    console.log('开始加载价格预测，商品ID:', selectedId.value)
+    
+    // 同时获取基础预测和详细预测
+    const [basicPrediction, detailedPrediction] = await Promise.all([
+      fetch(`/api/products/${selectedId.value}/price-prediction`).then(res => res.json()),
+      fetch(`/api/products/${selectedId.value}/detailed-price-prediction`).then(res => res.json())
+    ])
+
+    console.log('预测数据获取成功:', { basicPrediction, detailedPrediction })
+
+    if (basicPrediction.prediction) {
+      // 如果返回的是错误信息
+      alert(basicPrediction.prediction)
+      return
+    }
+
+    predictionData.value = basicPrediction
+    detailedPredictionData.value = detailedPrediction
+
+    console.log('预测数据设置完成')
+  } catch (error) {
+    console.error('加载预测失败:', error)
+    alert('预测加载失败，请稍后重试')
+  } finally {
+    predictionLoading.value = false
+  }
+}
+
+function togglePredictionDetails() {
+  showPredictionDetails.value = !showPredictionDetails.value
+}
+
+function getTrendIcon(trend) {
+  if (!trend) return 'fas fa-minus trend-stable'
+  if (trend.includes('上涨') || trend.includes('up')) return 'fas fa-arrow-up trend-up'
+  if (trend.includes('下跌') || trend.includes('down')) return 'fas fa-arrow-down trend-down'
+  return 'fas fa-minus trend-stable'
+}
+
+function getTrendClass(trend) {
+  if (!trend) return 'trend-stable'
+  if (trend.includes('上涨') || trend.includes('up')) return 'trend-up'
+  if (trend.includes('下跌') || trend.includes('down')) return 'trend-down'
+  return 'trend-stable'
+}
+
+function getConfidenceClass(confidence) {
+  switch (confidence) {
+    case '高': return 'confidence-high'
+    case '中': return 'confidence-medium'
+    case '低': return 'confidence-low'
+    default: return 'confidence-low'
+  }
+}
+
+function getAlgorithmName(method) {
+  const nameMap = {
+    simpleMovingAverage: '简单移动平均',
+    weightedMovingAverage: '加权移动平均',
+    linearRegression: '线性回归',
+    exponentialSmoothing: '指数平滑',
+    seasonalPrediction: '季节性预测',
+    comprehensivePrediction: '综合预测',
+    simplePrediction: '简单预测'
+  }
+  return nameMap[method] || method
 }
 </script>
 
@@ -1188,5 +1423,273 @@ function renderCharts() {
 
 .chart-container canvas {
   height: 320px !important;
+}
+
+/* 价格预测区域样式 */
+.prediction-section {
+  background: white;
+  border-radius: 15px;
+  padding: 25px;
+  box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+  margin-bottom: 20px;
+}
+
+.prediction-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.prediction-header h3 {
+  margin: 0;
+  color: var(--dark);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.prediction-header h3 i {
+  color: var(--primary);
+}
+
+.prediction-controls {
+  display: flex;
+  gap: 10px;
+}
+
+.prediction-content {
+  margin-top: 20px;
+}
+
+.main-prediction {
+  margin-bottom: 20px;
+}
+
+.prediction-card {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 25px;
+  border-radius: 15px;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.prediction-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+}
+
+.prediction-method {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin-bottom: 15px;
+  position: relative;
+  z-index: 1;
+}
+
+.prediction-price {
+  margin-bottom: 15px;
+  position: relative;
+  z-index: 1;
+}
+
+.price-label {
+  display: block;
+  font-size: 0.9rem;
+  opacity: 0.9;
+  margin-bottom: 5px;
+}
+
+.price-value {
+  font-size: 2.5rem;
+  font-weight: bold;
+  display: block;
+}
+
+.prediction-trend {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 15px;
+  position: relative;
+  z-index: 1;
+}
+
+.trend-icon {
+  font-size: 1.2rem;
+}
+
+.trend-text {
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.prediction-confidence,
+.prediction-consistency {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+  position: relative;
+  z-index: 1;
+}
+
+.confidence-label,
+.consistency-label {
+  font-size: 0.9rem;
+  opacity: 0.9;
+}
+
+.confidence-value,
+.consistency-value {
+  font-weight: 600;
+}
+
+.prediction-note {
+  margin-top: 10px;
+  position: relative;
+  z-index: 1;
+}
+
+.note-text {
+  font-size: 0.8rem;
+  opacity: 0.8;
+  font-style: italic;
+}
+
+.detailed-predictions {
+  margin-top: 25px;
+}
+
+.detailed-predictions h4 {
+  margin: 0 0 15px 0;
+  color: var(--dark);
+  font-size: 1.1rem;
+}
+
+.algorithm-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 15px;
+}
+
+.algorithm-card {
+  background: var(--light);
+  padding: 15px;
+  border-radius: 10px;
+  text-align: center;
+  border: 1px solid var(--light-gray);
+  transition: all 0.3s ease;
+}
+
+.algorithm-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+}
+
+.algorithm-name {
+  font-weight: 600;
+  color: var(--dark);
+  margin-bottom: 8px;
+  font-size: 0.9rem;
+}
+
+.algorithm-price {
+  font-size: 1.3rem;
+  font-weight: bold;
+  color: var(--warning);
+  margin-bottom: 8px;
+}
+
+.algorithm-trend {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  margin-bottom: 8px;
+  font-size: 0.9rem;
+}
+
+.algorithm-confidence {
+  font-size: 0.8rem;
+  color: var(--gray);
+  margin-bottom: 5px;
+}
+
+.algorithm-r2 {
+  font-size: 0.8rem;
+  color: var(--gray);
+  font-style: italic;
+}
+
+.algorithm-note {
+  font-size: 0.8rem;
+  color: var(--gray);
+  font-style: italic;
+  margin-top: 5px;
+}
+
+.prediction-loading {
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--gray);
+}
+
+.prediction-loading i {
+  font-size: 2rem;
+  margin-bottom: 15px;
+  display: block;
+}
+
+.prediction-placeholder {
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--gray);
+}
+
+.prediction-placeholder i {
+  font-size: 3rem;
+  margin-bottom: 15px;
+  display: block;
+  opacity: 0.5;
+}
+
+.prediction-placeholder p {
+  margin: 0;
+  font-size: 1rem;
+}
+
+/* 趋势和置信度样式 */
+.trend-up {
+  color: #00c853;
+}
+
+.trend-down {
+  color: #e74c3c;
+}
+
+.trend-stable {
+  color: #ff9800;
+}
+
+.confidence-high {
+  color: #00c853;
+}
+
+.confidence-medium {
+  color: #ff9800;
+}
+
+.confidence-low {
+  color: #e74c3c;
 }
 </style>
