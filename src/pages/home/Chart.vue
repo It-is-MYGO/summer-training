@@ -117,10 +117,9 @@
 
 <script setup>
 import { ref, onMounted, watch, computed, nextTick } from 'vue'
-import { useRouter, useRoute } from 'vue-router'
+import { useRouter } from 'vue-router'
 
 const router = useRouter()
-const route = useRoute()
 const productType = ref('') // 'hot' 或 'favorites'
 const availableProducts = ref([])
 const selectedId = ref(null)
@@ -135,18 +134,11 @@ const selectedProduct = computed(() => {
 })
 
 onMounted(async () => {
+  // 等待 Chart.js 加载
   await waitForChart()
-  // 如果有URL参数，自动加载
-  const id = route.query.id
-  const type = route.query.type
-  if (id && type) {
-    productType.value = type
-    await selectProductType(type)
-    await nextTick()
-    selectProduct(Number(id))
-  } else {
-    selectProductType('hot')
-  }
+  
+  // 默认选择热门商品
+  selectProductType('hot')
 })
 
 // 等待 Chart.js 加载
@@ -262,18 +254,19 @@ async function selectProductType(type) {
           console.warn('发现无效收藏记录:', favorite)
           continue
         }
+        
         // 验证商品是否存在
         try {
           const productCheckRes = await fetch(`/api/products/${favorite.productId}`, {
             signal: controller.signal,
             headers: { 'Content-Type': 'application/json' }
           })
+          
           if (productCheckRes.ok) {
             const productData = await productCheckRes.json()
             validFavorites.push({
-              ...productData.data, // 只展开商品的 data 字段
               ...favorite,
-              id: productData.data.id // 明确指定 id 为商品ID
+              ...productData // 合并商品信息
             })
           } else {
             console.warn('收藏的商品不存在，跳过:', favorite.productId)
@@ -632,26 +625,25 @@ function renderCharts() {
   
   // 多平台价格对比折线图
   const comparisonCtx = comparisonCanvas.getContext('2d')
-  
-  // 生成所有平台数据的日期标签（去重并排序）
-  const allDates = new Set()
-  Object.values(comparisonData.value).forEach(platformData => {
-    platformData.forEach(item => {
-      allDates.add(item.date)
-    })
-  })
-  const sortedDates = Array.from(allDates).sort((a, b) => new Date(a) - new Date(b))
-  
   comparisonChart = new window.Chart(comparisonCtx, {
     type: 'line',
     data: {
-      labels: sortedDates.map(date => formatDateLabel(date)),
+      labels: (comparisonData.value['京东'] || []).map(item => {
+        // 格式化日期，去除时间戳后缀
+        const date = item.date
+        if (date && typeof date === 'string') {
+          // 如果是ISO格式的日期字符串，只取日期部分
+          if (date.includes('T')) {
+            return date.split('T')[0]
+          }
+          // 如果是其他格式，直接返回
+          return date
+        }
+        return date
+      }),
       datasets: Object.keys(comparisonData.value).map(platform => ({
         label: platform,
-        data: sortedDates.map(date => {
-          const platformItem = comparisonData.value[platform].find(item => item.date === date)
-          return platformItem ? platformItem.price : null
-        }),
+        data: comparisonData.value[platform].map(item => item.price),
         borderColor: platformColors[platform] || '#4361ee',
         backgroundColor: platformColors[platform] ? `${platformColors[platform]}20` : 'rgba(67, 97, 238, 0.1)',
         borderWidth: 3,
@@ -684,12 +676,7 @@ function renderCharts() {
           grid: { display: false },
           ticks: { 
             color: '#333',
-            padding: 8,
-            maxTicksLimit: 8,
-            callback: function(value, index, values) {
-              const label = this.getLabelForValue(value)
-              return formatDateLabel(label)
-            }
+            padding: 8
           }
         }
       }
@@ -701,7 +688,7 @@ function renderCharts() {
   fluctuationChart = new window.Chart(fluctuationCtx, {
     type: 'bar',
     data: {
-      labels: monthlyData.value.map(item => formatMonthLabel(item.month)),
+      labels: monthlyData.value.map(item => item.month),
       datasets: [{
         label: '平均价格 (元)',
         data: monthlyData.value.map(item => item.avgPrice),
@@ -730,61 +717,12 @@ function renderCharts() {
           grid: { display: false },
           ticks: { 
             color: '#333',
-            padding: 8,
-            callback: function(value, index, values) {
-              const label = this.getLabelForValue(value)
-              return formatMonthLabel(label)
-            }
+            padding: 8
           }
         }
       }
     }
   })
-}
-
-function formatDateLabel(dateStr) {
-  if (!dateStr) return ''
-  try {
-    const date = new Date(dateStr)
-    if (isNaN(date.getTime())) {
-      // 如果日期无效，尝试其他格式
-      const parts = dateStr.split('-')
-      if (parts.length >= 3) {
-        return `${parts[0]}-${parts[1]}-${parts[2]}`
-      }
-      return dateStr
-    }
-    return date.toLocaleDateString('zh-CN', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit'
-    })
-  } catch (error) {
-    console.warn('日期格式化失败:', dateStr, error)
-    return dateStr
-  }
-}
-
-function formatMonthLabel(monthStr) {
-  if (!monthStr) return ''
-  try {
-    const date = new Date(monthStr)
-    if (isNaN(date.getTime())) {
-      // 如果日期无效，尝试其他格式
-      const parts = monthStr.split('-')
-      if (parts.length >= 2) {
-        return `${parts[0]}-${parts[1]}`
-      }
-      return monthStr
-    }
-    return date.toLocaleDateString('zh-CN', { 
-      year: 'numeric',
-      month: '2-digit'
-    })
-  } catch (error) {
-    console.warn('月份格式化失败:', monthStr, error)
-    return monthStr
-  }
 }
 </script>
 
