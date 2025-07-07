@@ -331,7 +331,7 @@ export default {
               category: product.category || '未分类',
               platformPrices,
               favoriteCount: product.favorite_count || 0,
-              status: product.status || 1
+              status: product.status
             }
           }))
           this.total = result.data.total || 0
@@ -389,6 +389,7 @@ export default {
         const result = await response.json()
         if (result.code === 0) {
           alert(`商品${action}成功！`)
+          this.selectedStatus = ''
           this.loadProducts()
         } else {
           alert(`${action}失败: ` + result.message)
