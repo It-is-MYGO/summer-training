@@ -63,6 +63,11 @@ const routes = [
     path: '/favorites/search',
     name: 'FavoritesSearchResults',
     component: () => import('../pages/home/SearchResults.vue')
+  },
+  {
+    path: '/ai-chat',
+    component: () => import('@/pages/ai/Chat.vue'),
+    name: 'AIChat'
   }
 ]
 

@@ -5,6 +5,7 @@
     <div class="main-content" :class="{ 'admin-content': isAdminRoute && isAdmin }">
       <!-- <SearchBox v-if="!hideSearchOn.includes(route.path)" /> -->
       <router-view />
+      <AIChatWidget />
     </div>
   </div>
 </template>
@@ -16,11 +17,13 @@ import AdminSidebar from './pages/admin/components/AdminSidebar.vue'
 import { useRoute } from 'vue-router'
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import request from './utils/request'
+import AIChatWidget from '@/components/AIChatWidget.vue'
 
 export default {
   components: {
     Sidebar,
-    AdminSidebar
+    AdminSidebar,
+    AIChatWidget
     // SearchBox
   },
   setup() {
