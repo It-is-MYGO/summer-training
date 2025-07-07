@@ -1,15 +1,21 @@
 <template>
   <section class="page-content">
     <div class="container">
-      <div class="product-detail" v-if="product">
+      <div class="product-detail" v-if="product && product.data">
         <div class="detail-image">
-          <img :src="product.img || product.image || defaultImg" :alt="product.title" @error="onImgError" style="object-fit:contain;width:100%;height:100%;" loading="lazy" />
+          <img :src="product.data.img || product.data.image || defaultImg" :alt="product.data.title" @error="onImgError" style="object-fit:contain;width:100%;height:100%;" loading="lazy" />
         </div>
         <div class="detail-info">
-          <h1>{{ product.title }}</h1>
-          <div style="color: var(--gray); margin-bottom: 15px;">{{ product.desc }}</div>
-          <div class="current-price">{{ product.price || '—' }}</div>
-          <div class="price-change price-down">较上月 {{ product.priceChange }}%</div>
+          <h1>{{ product.data.title }}</h1>
+          <div style="color: var(--gray); margin-bottom: 15px;">{{ product.data.desc }}</div>
+          <!-- 平台及价格展示 -->
+          <div class="platform-prices">
+            <span v-for="p in platformPrices" :key="p.platform" class="platform-badge" style="margin-right: 8px;">
+              {{ p.platform }}：<b v-if="p.price">¥{{ p.price }}</b><span v-else>暂无</span>
+            </span>
+          </div>
+          <div class="current-price">{{ product.data.price || product.data.current_price || '—' }}</div>
+          <div class="price-change price-down">较上月 {{ product.data.priceChange }}%</div>
           <div class="price-comparison">
             <h3>平台比价</h3>
             <div class="platform-price" v-for="p in platformPrices" :key="p.platform">
@@ -83,7 +89,7 @@
               <span class="currency">元</span>
             </div>
             <div class="current-price-info">
-              当前价格：<span class="current-price-text">{{ product?.price || '—' }}元</span>
+              当前价格：<span class="current-price-text">{{ product?.data?.price || product?.data?.current_price || '—' }}元</span>
             </div>
             <div class="alert-tips">
               <p><i class="fas fa-info-circle"></i> 提示：</p>
@@ -486,8 +492,11 @@ async function saveAlertPrice() {
   justify-content: center;
 }
 .detail-image img {
-  max-width: 90%;
-  max-height: 90%;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  width: 100%;
+  height: 100%;
 }
 .detail-info h1 {
   font-size: 1.8rem;
